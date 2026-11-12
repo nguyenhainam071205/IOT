@@ -6,6 +6,9 @@
   - Cảnh báo: H_nuoc >= 4 cm -> VÀNG, H_nuoc >= 8 cm -> ĐỎ
   - Gửi HTTP POST JSON về web server khi đổi mức cảnh báo và định kỳ 5 phút/lần
 
+  Mở file này trong Arduino IDE. Thư mục chứa nó phải tên là "firmware"
+  (trùng tên file firmware.ino). Code web server/giao diện nằm riêng ở ../web.
+
   Cấu trúc file (Arduino IDE tự mở thành các tab, nạp từ tab này là nạp hết):
     config.h        - chân GPIO, WiFi/server, mọi hằng số
     measurement.h   - enum Level, struct Measurement

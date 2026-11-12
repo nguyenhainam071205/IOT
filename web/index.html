@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trạm đo lũ</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --text:#1d2733; --muted:#6b7785; --line:#e2e6ea;
+          --normal:#1f9d55; --yellow:#d4a000; --red:#d63031; --blue:#2f6fde; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+  header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+  h1 { font-size: 22px; margin: 8px 0; }
+  .status { font-size: 14px; color: var(--muted); }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; background:var(--muted); }
+  .banner { border-radius: 10px; padding: 16px; color:#fff; font-size: 20px; font-weight: 600; margin: 12px 0; background: var(--muted); }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .card { background: var(--card); border-radius: 10px; padding: 14px; border: 1px solid var(--line); }
+  .card .label { font-size: 13px; color: var(--muted); }
+  .card .value { font-size: 28px; font-weight: 600; margin-top: 4px; }
+  .card .unit { font-size: 14px; color: var(--muted); font-weight: 400; }
+  h2 { font-size: 16px; margin: 20px 0 8px; }
+  svg { width: 100%; height: 240px; display:block; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; }
+  .tag { padding: 2px 8px; border-radius: 10px; color: #fff; font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Trạm đo lũ</h1>
+    <div class="status"><span class="dot" id="dot"></span><span id="conn">Đang tải...</span></div>
+  </header>
+
+  <div class="banner" id="banner">Chưa có dữ liệu</div>
+
+  <div class="grid">
+    <div class="card"><div class="label">Mực nước</div><div class="value"><span id="h">--</span> <span class="unit">cm</span></div></div>
+    <div class="card"><div class="label">Lưu lượng</div><div class="value"><span id="q">--</span> <span class="unit">L/phút</span></div></div>
+    <div class="card"><div class="label">Tổng lưu lượng</div><div class="value"><span id="tot">--</span> <span class="unit">L</span></div></div>
+    <div class="card"><div class="label">Độ ẩm đất</div><div class="value"><span id="w">--</span> <span class="unit">%</span></div></div>
+  </div>
+
+  <h2>Mực nước theo thời gian</h2>
+  <div class="card"><svg id="chart" viewBox="0 0 1000 240" preserveAspectRatio="none"></svg></div>
+
+  <h2>Bản tin gần đây</h2>
+  <div class="card table-wrap">
+    <table>
+      <thead><tr><th>Thời gian</th><th>Loại</th><th>Mức</th><th>H (cm)</th><th>Q (L/phút)</th><th>Tổng (L)</th><th>Độ ẩm (%)</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+// Phải khớp YELLOW_CM / RED_CM trong config.h của ESP32
+const YELLOW_CM = 4.0, RED_CM = 8.0;
+const OFFLINE_MS = 6 * 60 * 1000;   // ESP32 báo cáo 5 phút/lần, quá 6 phút coi là mất kết nối
+const LEVEL = {
+  normal: { text: 'BÌNH THƯỜNG', color: 'var(--normal)' },
+  yellow: { text: 'CẢNH BÁO VÀNG', color: 'var(--yellow)' },
+  red:    { text: 'CẢNH BÁO ĐỎ', color: 'var(--red)' },
+};
+const $ = id => document.getElementById(id);
+const fmtTime = iso => new Date(iso).toLocaleString('vi-VN');
+
+function render(data) {
+  const last = data[data.length - 1];
+  if (!last) return;
+
+  const age = Date.now() - new Date(last.received_at);
+  const online = age < OFFLINE_MS;
+  $('dot').style.background = online ? 'var(--normal)' : 'var(--red)';
+  $('conn').textContent = (online ? 'Trạm đang hoạt động' : 'Mất kết nối với trạm') + ' · cập nhật ' + fmtTime(last.received_at);
+
+  const lv = LEVEL[last.level];
+  $('banner').textContent = lv.text + (online ? '' : ' (dữ liệu cũ)');
+  $('banner').style.background = lv.color;
+
+  $('h').textContent = last.h_nuoc_cm.toFixed(1);
+  $('q').textContent = last.flow_lpm.toFixed(2);
+  $('tot').textContent = last.total_l.toFixed(3);
+  $('w').textContent = last.soil_pct.toFixed(1);
+
+  drawChart(data);
+
+  $('rows').innerHTML = data.slice(-30).reverse().map(d => `
+    <tr><td>${fmtTime(d.received_at)}</td><td>${d.event === 'alert' ? 'Cảnh báo' : 'Định kỳ'}</td>
+    <td><span class="tag" style="background:${LEVEL[d.level].color}">${LEVEL[d.level].text}</span></td>
+    <td>${d.h_nuoc_cm.toFixed(1)}</td><td>${d.flow_lpm.toFixed(2)}</td>
+    <td>${d.total_l.toFixed(3)}</td><td>${d.soil_pct.toFixed(1)}</td></tr>`).join('');
+}
+
+function drawChart(data) {
+  const W = 1000, H = 240, pad = 30;
+  const t = data.map(d => +new Date(d.received_at));
+  const t0 = t[0], t1 = Math.max(t[t.length - 1], t0 + 1);
+  const maxH = Math.max(RED_CM + 2, ...data.map(d => d.h_nuoc_cm));
+  const x = v => pad + (v - t0) / (t1 - t0) * (W - 2 * pad);
+  const y = v => H - pad - v / maxH * (H - 2 * pad);
+
+  const line = (v, color, label) =>
+    `<line x1="${pad}" x2="${W - pad}" y1="${y(v)}" y2="${y(v)}" stroke="${color}" stroke-dasharray="6 4"/>
+     <text x="${W - pad}" y="${y(v) - 4}" text-anchor="end" font-size="12" fill="${color}">${label}</text>`;
+  const pts = data.map((d, i) => `${x(t[i]).toFixed(1)},${y(d.h_nuoc_cm).toFixed(1)}`).join(' ');
+
+  $('chart').innerHTML = `
+    <line x1="${pad}" x2="${W - pad}" y1="${y(0)}" y2="${y(0)}" stroke="#ccc"/>
+    ${line(YELLOW_CM, 'var(--yellow)', 'Vàng ' + YELLOW_CM + ' cm')}
+    ${line(RED_CM, 'var(--red)', 'Đỏ ' + RED_CM + ' cm')}
+    <polyline points="${pts}" fill="none" stroke="var(--blue)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+    <text x="${pad}" y="${H - 8}" font-size="12" fill="#888">${fmtTime(t0)}</text>
+    <text x="${W - pad}" y="${H - 8}" font-size="12" fill="#888" text-anchor="end">${fmtTime(t1)}</text>`;
+}
+
+async function refresh() {
+  try {
+    const res = await fetch('/api/history?limit=300');
+    const data = await res.json();
+    if (data.length) render(data);
+    else $('conn').textContent = 'Đang chờ bản tin đầu tiên từ ESP32...';
+  } catch {
+    $('conn').textContent = 'Không kết nối được tới server';
+  }
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

@@ -8,6 +8,13 @@ Firmware cho ESP32 đo ba đại lượng mỗi giây và gửi về web server 
 | Lưu lượng | YF-S201 | `Q` (lít/phút) và tổng số lít |
 | Độ ẩm đất | Module LM393 (ngõ ra analog) | `W` (%) |
 
+Repo gồm hai thư mục:
+
+| Thư mục | Nội dung |
+|---|---|
+| `firmware/` | Code nạp vào ESP32 để đo (Arduino) |
+| `web/` | Web server nhận dữ liệu và giao diện dashboard (Node.js). Chạy: `cd web` rồi `node server.js`, mở `http://localhost:3000` |
+
 Mục lục:
 
 1. [Chạy trong Arduino IDE](#1-chạy-trong-arduino-ide)
@@ -29,9 +36,9 @@ Mục lục:
 
 ### 1.2. Mở project
 
-Mở file `test.ino`. Arduino IDE tự mở tất cả file `.h` / `.cpp` cùng thư mục thành các tab, nạp từ tab `test` là nạp toàn bộ.
+Mở file `firmware/firmware.ino`. Arduino IDE tự mở tất cả file `.h` / `.cpp` cùng thư mục thành các tab, nạp từ tab `firmware` là nạp toàn bộ.
 
-> Thư mục chứa code phải tên là `test` (trùng tên file `test.ino`), nếu không Arduino IDE sẽ đòi tạo thư mục mới.
+> Thư mục chứa code phải tên là `firmware` (trùng tên file `firmware.ino`), nếu không Arduino IDE sẽ đòi tạo thư mục mới.
 
 ### 1.3. Sửa cấu hình trong `config.h`
 
@@ -91,11 +98,11 @@ Các dòng khác có thể gặp:
 
 ## 2. Code hoạt động thế nào
 
-### 2.1. Các file
+### 2.1. Các file (trong `firmware/`)
 
 | File | Nhiệm vụ |
 |---|---|
-| `test.ino` | `setup()` và `loop()`: điều phối các bước đo và quyết định khi nào gửi |
+| `firmware.ino` | `setup()` và `loop()`: điều phối các bước đo và quyết định khi nào gửi |
 | `config.h` | Chân GPIO, WiFi, URL server, mọi hằng số |
 | `measurement.h` | `enum Level` và `struct Measurement` (số liệu của một chu kỳ đo) |
 | `water_level.*` | HC-SR04: đo khoảng cách, lọc trung bình động, tính mực nước, mức cảnh báo |
