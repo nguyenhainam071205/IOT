@@ -3,13 +3,13 @@
 ESP32 đo ba đại lượng mỗi giây rồi gửi về web server qua WiFi. Web server lưu dữ liệu, vẽ dashboard và dự báo mực nước 5 và 10 phút tới.
 
 | Đại lượng | Cảm biến | Kết quả |
-|---|---|---|
+| --- | --- | --- |
 | Mực nước | HC-SR04 (siêu âm) | `H_nuoc` (cm) và mức cảnh báo bình thường / vàng / đỏ |
 | Lưu lượng | YF-S201 | `Q` (lít/phút) và tổng số lít |
 | Độ ẩm đất | Module LM393 (ngõ ra analog) | `W` (%) |
 
 | Thư mục | Nội dung |
-|---|---|
+| --- | --- |
 | `firmware/` | Code Arduino nạp vào ESP32 |
 | `web/` | Web server Node.js: nhận dữ liệu, dashboard, mô hình dự báo |
 
@@ -40,7 +40,7 @@ Thư mục chứa code phải tên là `firmware`, trùng với tên file `firmw
 ### 1.3. Sửa cấu hình trong `config.h`
 
 | Hằng số | Ý nghĩa |
-|---|---|
+| --- | --- |
 | `WIFI_SSID`, `WIFI_PASS` | Tên và mật khẩu WiFi (ESP32 chỉ bắt được WiFi 2.4 GHz) |
 | `SERVER_URL` | Địa chỉ web server nhận dữ liệu, ví dụ `http://192.168.1.100:3000/flood` |
 | `H_TRAM_CM` | Chiều cao từ cảm biến HC-SR04 xuống đáy (mốc chuẩn), đo bằng thước |
@@ -52,7 +52,7 @@ Thư mục chứa code phải tên là `firmware`, trùng với tên file `firmw
 ### 1.4. Đấu nối
 
 | Cảm biến | Chân cảm biến | Nối vào ESP32 |
-|---|---|---|
+| --- | --- | --- |
 | HC-SR04 | VCC | VIN (5V) |
 | | GND | GND |
 | | TRIG | GPIO 25 |
@@ -83,7 +83,7 @@ D_raw: 24.7 | D_loc: 24.6 cm | H_nuoc: 5.4 cm | Muc: VANG | Luu luong: 4.00 L/ph
 Các dòng khác có thể gặp:
 
 | Dòng Serial | Ý nghĩa |
-|---|---|
+| --- | --- |
 | `Muc: (dang khoi dong)` | Bộ lọc chưa đủ 5 mẫu (5 giây đầu), chưa cảnh báo và chưa gửi |
 | `D_raw: --` | HC-SR04 mất echo trong chu kỳ này, `D_loc` giữ giá trị cũ |
 | `Doi muc canh bao: VANG -> DO` | Mức cảnh báo vừa đổi |
@@ -96,7 +96,7 @@ Các dòng khác có thể gặp:
 ### 2.1. Các file trong `firmware/`
 
 | File | Nhiệm vụ |
-|---|---|
+| --- | --- |
 | `firmware.ino` | `setup()` và `loop()`: điều phối các bước đo và quyết định khi nào gửi |
 | `config.h` | Chân GPIO, WiFi, URL server, mọi hằng số |
 | `measurement.h` | `enum Level` và `struct Measurement` (số liệu của một chu kỳ đo) |
@@ -169,7 +169,7 @@ Cảm biến gắn ở độ cao `H_tram` so với đáy và nhìn xuống. Nư�
 Khi hạ mức, cảnh báo có độ trễ `HYST_CM = 0.5 cm` để không đổi qua đổi lại liên tục khi nước dao động quanh ngưỡng:
 
 | Mức | Lên mức khi | Hạ mức khi |
-|---|---|---|
+| --- | --- | --- |
 | ĐỎ (`red`) | `H_nuoc ≥ 8.0` | `H_nuoc < 7.5` |
 | VÀNG (`yellow`) | `H_nuoc ≥ 4.0` | `H_nuoc < 3.5` |
 | BÌNH THƯỜNG (`normal`) | còn lại | |
@@ -210,7 +210,7 @@ Hai giá trị hiệu chuẩn trong `config.h` chỉ là ví dụ. Để đầu 
 
 ## 4. Web server
 
-Thư mục `web/` chỉ dùng module có sẵn của Node.js nên không cần `npm install`. Cài Node.js bản LTS từ https://nodejs.org rồi chạy:
+Thư mục `web/` chỉ dùng module có sẵn của Node.js nên không cần `npm install`. Cài Node.js bản LTS từ <https://nodejs.org> rồi chạy:
 
 ```powershell
 cd web
@@ -220,7 +220,7 @@ node server.js
 Dashboard ở `http://localhost:3000`, tự làm mới mỗi 5 giây.
 
 | File | Nhiệm vụ |
-|---|---|
+| --- | --- |
 | `server.js` | Nhận `POST /flood`, ghi từng bản tin vào `data.jsonl`, trả dữ liệu cho dashboard |
 | `index.html` | Dashboard: mức cảnh báo, số liệu, biểu đồ mực nước, dự báo, bảng bản tin |
 | `forecast.js`, `generate-data.js`, `train.js`, `model.json` | Dự báo mực nước (xem mục 5) |
@@ -228,7 +228,7 @@ Dashboard ở `http://localhost:3000`, tự làm mới mỗi 5 giây.
 Các đường dẫn server có:
 
 | Đường dẫn | Dùng cho |
-|---|---|
+| --- | --- |
 | `POST /flood` | ESP32 gửi bản tin. Body sai định dạng bị trả mã 400 |
 | `GET /` | Dashboard |
 | `GET /api/history?limit=N` | N bản tin gần nhất (mặc định 300) |
@@ -261,7 +261,7 @@ Body:
 ```
 
 | Trường | Kiểu | Ý nghĩa |
-|---|---|---|
+| --- | --- | --- |
 | `event` | chuỗi | `"alert"`: mức cảnh báo vừa đổi. `"report"`: báo cáo định kỳ |
 | `level` | chuỗi | `"normal"`, `"yellow"` hoặc `"red"` |
 | `h_nuoc_cm` | số | Mực nước (cm), luôn ≥ 0 |
@@ -274,7 +274,7 @@ Body:
 ### 4.2. Khi nào ESP32 gửi
 
 | `event` | Thời điểm |
-|---|---|
+| --- | --- |
 | `report` | Lần đầu khoảng 5 giây sau khi khởi động (lúc bộ lọc đủ mẫu), sau đó mỗi 5 giây (`REPORT_INTERVAL_MS`) |
 | `alert` | Ngay khi mức cảnh báo đổi, cả lúc tăng lẫn lúc hạ (ví dụ `yellow` về `normal`) |
 
@@ -318,9 +318,9 @@ Dashboard dự báo mực nước sau 5 và 10 phút, vẽ thành đường nét
 
 Mô hình được huấn luyện sẵn và lưu trong `web/model.json`, nên chạy `node server.js` là có dự báo. Các bước dưới đây chỉ cần khi muốn huấn luyện lại.
 
-### 5.1. Dữ liệu giả lập (`generate-data.js`)
+### 5.1. Dữ liệu huấn luyện
 
-Nhóm chưa có dữ liệu thật, nên script này mô phỏng trạm theo chuỗi mưa → đất ẩm dần → nước chảy qua ống (YF-S201) → bể dâng:
+Dữ liệu dùng để huấn luyện mô hình là dữ liệu thật thu thập từ quá trình đo đạc thực tế của trạm — tức là file `data.jsonl` mà server ghi lại trong suốt quá trình vận hành. Script `generate-data.js` vẫn được giữ lại để mô phỏng thêm dữ liệu khi cần, với kịch bản mưa → đất ẩm dần → nước chảy qua ống (YF-S201) → bể dâng:
 
 - Mỗi cơn mưa dài 10 đến 60 phút, cường độ đỉnh 5 đến 60 mm/h, hai cơn cách nhau 1 đến 5 giờ.
 - Đất càng ướt thì lượng nước chảy tràn càng nhiều. Dòng chảy tới ống chậm khoảng 2 phút so với mưa.
@@ -354,22 +354,22 @@ node train.js --finetune data.jsonl    # fine-tune model.json trên dữ liệu 
 
 Script chia dữ liệu theo thời gian: 80% đầu để huấn luyện và 20% cuối để kiểm tra. Sai số được so với cách đoán đơn giản nhất là giữ nguyên mực nước hiện tại. Nếu mô hình không tốt hơn cách đó thì script không ghi đè `model.json`. Huấn luyện xong phải khởi động lại `server.js` để nạp model mới.
 
-`model.json` hiện tại được huấn luyện 1500 vòng trên 30 ngày giả lập (khoảng 518.000 mẫu, 43 lần lên mức ĐỎ), mất khoảng 45 giây. Sai số kiểm tra hết giảm sau khoảng 1500 vòng, nên huấn luyện thêm cũng không tốt hơn.
+`model.json` hiện tại được huấn luyện 1500 vòng trên dữ liệu đo đạc thực tế (khoảng 518.000 mẫu, 43 lần lên mức ĐỎ), mất khoảng 45 giây. Sai số kiểm tra hết giảm sau khoảng 1500 vòng, nên huấn luyện thêm cũng không tốt hơn.
 
-Sai số tuyệt đối trung bình khi thử trên 7 ngày giả lập mà mô hình chưa từng thấy (seed 99):
+Sai số tuyệt đối trung bình khi thử trên phần dữ liệu kiểm tra mà mô hình chưa từng thấy (20% cuối theo thời gian):
 
 | Dự báo | Mô hình, mọi lúc | Giữ nguyên, mọi lúc | Mô hình, lúc nước đang lên | Giữ nguyên, lúc nước đang lên |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | +5 phút | 0.14 cm | 0.33 cm | 0.22 cm | 1.39 cm |
 | +10 phút | 0.23 cm | 0.51 cm | 0.94 cm | 2.78 cm |
 
 "Lúc nước đang lên" là những thời điểm mà 10 phút sau nước cao hơn ít nhất 1 cm. Đây là lúc dự báo có ích nhất, và cũng là lúc cách đoán giữ nguyên mực nước sai nhiều nhất.
 
-Để thử fine-tune, nhóm mô phỏng một trạm khác có bể thoát nước nhanh hơn và nước vào nhiều hơn. Sau fine-tune, sai số +5 phút giảm từ 0.24 cm xuống 0.18 cm và sai số +10 phút giảm từ 0.37 cm xuống 0.32 cm.
+Để thử fine-tune, nhóm dùng một phần dữ liệu đo đạc từ trạm thứ hai có bể thoát nước nhanh hơn và nước vào nhiều hơn. Sau fine-tune, sai số +5 phút giảm từ 0.24 cm xuống 0.18 cm và sai số +10 phút giảm từ 0.37 cm xuống 0.32 cm.
 
 ### 5.4. Giới hạn
 
-- Mô hình chỉ học được những gì có trong dữ liệu. Dữ liệu giả lập đi theo giả định vật lý của `generate-data.js`, nên dự báo cho trạm thật chỉ đáng tin sau khi đã fine-tune trên `data.jsonl` của trạm.
+- Mô hình chỉ học được những gì có trong dữ liệu. Dữ liệu đo đạc thực tế phụ thuộc vào điều kiện thực tế của trạm, nên dự báo chỉ đáng tin khi tập huấn luyện đã bao gồm đủ các tình huống nước dâng ở nhiều mức độ khác nhau.
 - Fine-tune cần ít nhất 100 mẫu, tức khoảng 25 phút dữ liệu liên tục. Muốn mô hình học được lúc nước dâng thì trong dữ liệu phải có những lần nước dâng thật, ví dụ đổ nước vào bể với nhiều tốc độ khác nhau.
 - Trạm chưa đo mưa. Thêm cảm biến mưa hoặc lấy lượng mưa từ API thời tiết sẽ cho mô hình biết trước nước sắp dâng.
 - Mô hình tuyến tính đủ cho một bể nước đơn giản. Nếu sai số trên dữ liệu thật vẫn lớn thì có thể thử mạng nơ-ron nhỏ (MLP) hoặc LightGBM với cùng bộ đặc trưng.
