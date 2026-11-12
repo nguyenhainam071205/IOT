@@ -131,7 +131,7 @@ Các dòng khác có thể gặp:
    Nếu bộ lọc chưa đủ 5 mẫu: dừng ở đây.
 
 5) Mức cảnh báo khác mức đang có hiệu lực  -> gửi POST "alert"
-6) Chưa gửi lần nào, hoặc đã qua 5 phút    -> gửi POST "report"
+6) Chưa gửi lần nào, hoặc đã qua 5 giây    -> gửi POST "report"
 ```
 
 ---
@@ -260,7 +260,7 @@ Body:
 
 | `event` | Thời điểm |
 |---|---|
-| `report` | Lần đầu khoảng 5 giây sau khi khởi động (lúc bộ lọc đủ mẫu), sau đó mỗi 5 phút (`REPORT_INTERVAL_MS`) |
+| `report` | Lần đầu khoảng 5 giây sau khi khởi động (lúc bộ lọc đủ mẫu), sau đó mỗi 5 giây (`REPORT_INTERVAL_MS`) |
 | `alert` | Ngay khi mức cảnh báo đổi, cả lúc tăng lẫn lúc hạ (ví dụ `yellow` về `normal`) |
 
 Có thể nhận `alert` và `report` liền nhau trong cùng một giây.
@@ -274,9 +274,9 @@ Có thể nhận `alert` và `report` liền nhau trong cùng một giây.
 
 - **Không có thời gian trong JSON.** ESP32 không có đồng hồ thực, server tự gắn thời gian lúc nhận.
 - **Không có mã thiết bị.** Nếu sau này có nhiều trạm, cần thêm một trường `device_id` vào JSON trong `uplink.cpp`.
-- **Không gửi lại khi lỗi.** Nếu mất WiFi hoặc server không trả lời, bản tin đó bị bỏ. Một `alert` bị mất sẽ không được gửi lại; server chỉ biết mức mới qua `report` kế tiếp (tối đa 5 phút sau). Vì vậy nên lấy `level` từ mọi bản tin, không chỉ từ `alert`.
+- **Không gửi lại khi lỗi.** Nếu mất WiFi hoặc server không trả lời, bản tin đó bị bỏ. Một `alert` bị mất sẽ không được gửi lại; server chỉ biết mức mới qua `report` kế tiếp (tối đa 5 giây sau). Vì vậy nên lấy `level` từ mọi bản tin, không chỉ từ `alert`.
 - **`total_l` về 0 khi ESP32 khởi động lại.** Nếu thấy giá trị nhỏ hơn lần trước thì trạm vừa reset.
-- **`flow_lpm` là giá trị tức thời** của 1 giây ngay trước khi gửi, không phải trung bình 5 phút. Muốn biết lượng nước giữa hai bản tin thì lấy hiệu `total_l`.
+- **`flow_lpm` là giá trị tức thời** của 1 giây ngay trước khi gửi, không phải trung bình 5 giây. Muốn biết lượng nước giữa hai bản tin thì lấy hiệu `total_l`.
 - **Chỉ có HTTP, không có HTTPS**, và không có xác thực.
 - **Phát hiện trạm mất kết nối:** nếu quá khoảng 6 phút không nhận được bản tin nào thì coi như trạm offline.
 

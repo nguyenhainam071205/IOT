@@ -60,7 +60,7 @@
 <script>
 // Phải khớp YELLOW_CM / RED_CM trong config.h của ESP32
 const YELLOW_CM = 4.0, RED_CM = 8.0;
-const OFFLINE_MS = 6 * 60 * 1000;   // ESP32 báo cáo 5 phút/lần, quá 6 phút coi là mất kết nối
+const OFFLINE_MS = 20 * 1000;       // ESP32 báo cáo 5 giây/lần, quá 20 giây (lỡ 3-4 bản tin) coi là mất kết nối
 const LEVEL = {
   normal: { text: 'BÌNH THƯỜNG', color: 'var(--normal)' },
   yellow: { text: 'CẢNH BÁO VÀNG', color: 'var(--yellow)' },

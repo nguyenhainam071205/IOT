@@ -4,7 +4,7 @@
   - Đo mỗi giây, in 1 dòng ra Serial Monitor (115200 baud)
   - Mực nước: D lọc trung bình động N mẫu, H_nuoc = H_tram - D_loc
   - Cảnh báo: H_nuoc >= 4 cm -> VÀNG, H_nuoc >= 8 cm -> ĐỎ
-  - Gửi HTTP POST JSON về web server khi đổi mức cảnh báo và định kỳ 5 phút/lần
+  - Gửi HTTP POST JSON về web server khi đổi mức cảnh báo và định kỳ 5 giây/lần
 
   Mở file này trong Arduino IDE. Thư mục chứa nó phải tên là "firmware"
   (trùng tên file firmware.ino). Code web server/giao diện nằm riêng ở ../web.

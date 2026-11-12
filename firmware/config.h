@@ -11,9 +11,9 @@ const int FLOW_PIN = 27;   // YF-S201 xung (qua chia áp 1k/2k)
 const int SOIL_PIN = 34;   // Độ ẩm đất AO (ADC)
 
 // ---------------------- WIFI / SERVER (tự điền) ----------------------
-const char* const WIFI_SSID  = "nam03";
-const char* const WIFI_PASS  = "hainam2005";
-const char* const SERVER_URL = "http://192.168.1.100:3000/flood";   // endpoint nhận POST JSON
+const char* const WIFI_SSID  = "@@@";
+const char* const WIFI_PASS  = "Namdeptrai@@";
+const char* const SERVER_URL = "http://10.146.124.224:3000/flood";
 
 // ---------------------- HC-SR04 ----------------------
 const float TEMP_C    = 30.0;   // nhiệt độ môi trường (°C) để bù tốc độ âm thanh
@@ -40,7 +40,7 @@ const int ADC_UOT = 1400;       // ADC khi đất ướt hoàn toàn (nhúng nư
 
 // ---------------------- CHU KỲ ----------------------
 const unsigned long INTERVAL_MS        = 1000;                  // chu kỳ đo / in Serial
-const unsigned long REPORT_INTERVAL_MS = 5UL * 60UL * 1000UL;   // báo cáo định kỳ lên server: 5 phút
+const unsigned long REPORT_INTERVAL_MS = 5UL * 1000UL;          // báo cáo định kỳ lên server: 5 giây
 const unsigned long WIFI_RETRY_MS      = 10000;                 // thử kết nối lại WiFi mỗi 10 s
 
 #endif
