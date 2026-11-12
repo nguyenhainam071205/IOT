@@ -27,6 +27,7 @@
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th { color: var(--muted); font-weight: 500; }
   .tag { padding: 2px 8px; border-radius: 10px; color: #fff; font-size: 12px; }
+  .forecast { margin: -4px 0 12px; font-weight: 600; border-left: 6px solid var(--muted); }
 </style>
 </head>
 <body>
@@ -37,12 +38,14 @@
   </header>
 
   <div class="banner" id="banner">Chưa có dữ liệu</div>
+  <div class="card forecast" id="fcWarn" hidden></div>
 
   <div class="grid">
     <div class="card"><div class="label">Mực nước</div><div class="value"><span id="h">--</span> <span class="unit">cm</span></div></div>
     <div class="card"><div class="label">Lưu lượng</div><div class="value"><span id="q">--</span> <span class="unit">L/phút</span></div></div>
     <div class="card"><div class="label">Tổng lưu lượng</div><div class="value"><span id="tot">--</span> <span class="unit">L</span></div></div>
     <div class="card"><div class="label">Độ ẩm đất</div><div class="value"><span id="w">--</span> <span class="unit">%</span></div></div>
+    <div class="card"><div class="label">Dự báo mực nước</div><div class="value" id="fc" style="font-size:18px">--</div></div>
   </div>
 
   <h2>Mực nước theo thời gian</h2>
@@ -68,8 +71,10 @@ const LEVEL = {
 };
 const $ = id => document.getElementById(id);
 const fmtTime = iso => new Date(iso).toLocaleString('vi-VN');
+const RANK = ['normal', 'yellow', 'red'];
+const levelOf = h => h >= RED_CM ? 'red' : h >= YELLOW_CM ? 'yellow' : 'normal';
 
-function render(data) {
+function render(data, fc) {
   const last = data[data.length - 1];
   if (!last) return;
 
@@ -87,7 +92,20 @@ function render(data) {
   $('tot').textContent = last.total_l.toFixed(3);
   $('w').textContent = last.soil_pct.toFixed(1);
 
-  drawChart(data);
+  // Dự báo: cảnh báo sớm nếu mực nước dự báo lên mức cao hơn mức hiện tại
+  const hasFc = online && fc && fc.h_cm;
+  $('fc').textContent = hasFc
+    ? fc.horizons_min.map((m, k) => `+${m} phút: ${fc.h_cm[k].toFixed(1)} cm`).join(' · ')
+    : 'chưa đủ dữ liệu';
+  const k = hasFc ? fc.h_cm.findIndex(h => RANK.indexOf(levelOf(h)) > RANK.indexOf(last.level)) : -1;
+  $('fcWarn').hidden = k < 0;
+  if (k >= 0) {
+    const lvf = LEVEL[levelOf(fc.h_cm[k])];
+    $('fcWarn').textContent = `Dự báo: có thể lên ${lvf.text} trong khoảng ${fc.horizons_min[k]} phút nữa (${fc.h_cm[k].toFixed(1)} cm)`;
+    $('fcWarn').style.borderLeftColor = lvf.color;
+  }
+
+  drawChart(data, hasFc ? fc : null);
 
   $('rows').innerHTML = data.slice(-30).reverse().map(d => `
     <tr><td>${fmtTime(d.received_at)}</td><td>${d.event === 'alert' ? 'Cảnh báo' : 'Định kỳ'}</td>
@@ -96,11 +114,12 @@ function render(data) {
     <td>${d.total_l.toFixed(3)}</td><td>${d.soil_pct.toFixed(1)}</td></tr>`).join('');
 }
 
-function drawChart(data) {
+function drawChart(data, fc) {
   const W = 1000, H = 240, pad = 30;
   const t = data.map(d => +new Date(d.received_at));
-  const t0 = t[0], t1 = Math.max(t[t.length - 1], t0 + 1);
-  const maxH = Math.max(RED_CM + 2, ...data.map(d => d.h_nuoc_cm));
+  const tLast = t[t.length - 1];
+  const t0 = t[0], t1 = Math.max(fc ? tLast + Math.max(...fc.horizons_min) * 60000 : tLast, t0 + 1);
+  const maxH = Math.max(RED_CM + 2, ...data.map(d => d.h_nuoc_cm), ...(fc ? fc.h_cm : []));
   const x = v => pad + (v - t0) / (t1 - t0) * (W - 2 * pad);
   const y = v => H - pad - v / maxH * (H - 2 * pad);
 
@@ -108,21 +127,27 @@ function drawChart(data) {
     `<line x1="${pad}" x2="${W - pad}" y1="${y(v)}" y2="${y(v)}" stroke="${color}" stroke-dasharray="6 4"/>
      <text x="${W - pad}" y="${y(v) - 4}" text-anchor="end" font-size="12" fill="${color}">${label}</text>`;
   const pts = data.map((d, i) => `${x(t[i]).toFixed(1)},${y(d.h_nuoc_cm).toFixed(1)}`).join(' ');
+  // Đường dự báo nét đứt nối tiếp từ điểm đo cuối
+  const fcPts = fc ? [`${x(tLast)},${y(data[data.length - 1].h_nuoc_cm)}`,
+    ...fc.h_cm.map((h, k) => `${x(tLast + fc.horizons_min[k] * 60000)},${y(h)}`)].join(' ') : '';
 
   $('chart').innerHTML = `
     <line x1="${pad}" x2="${W - pad}" y1="${y(0)}" y2="${y(0)}" stroke="#ccc"/>
     ${line(YELLOW_CM, 'var(--yellow)', 'Vàng ' + YELLOW_CM + ' cm')}
     ${line(RED_CM, 'var(--red)', 'Đỏ ' + RED_CM + ' cm')}
     <polyline points="${pts}" fill="none" stroke="var(--blue)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+    <polyline points="${fcPts}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-dasharray="5 5" opacity="0.6" vector-effect="non-scaling-stroke"/>
     <text x="${pad}" y="${H - 8}" font-size="12" fill="#888">${fmtTime(t0)}</text>
-    <text x="${W - pad}" y="${H - 8}" font-size="12" fill="#888" text-anchor="end">${fmtTime(t1)}</text>`;
+    <text x="${W - pad}" y="${H - 8}" font-size="12" fill="#888" text-anchor="end">${fmtTime(t1)}${fc ? ' (dự báo)' : ''}</text>`;
 }
 
 async function refresh() {
   try {
-    const res = await fetch('/api/history?limit=300');
-    const data = await res.json();
-    if (data.length) render(data);
+    const [data, fc] = await Promise.all([
+      fetch('/api/history?limit=300').then(r => r.json()),
+      fetch('/api/forecast').then(r => r.json()),
+    ]);
+    if (data.length) render(data, fc);
     else $('conn').textContent = 'Đang chờ bản tin đầu tiên từ ESP32...';
   } catch {
     $('conn').textContent = 'Không kết nối được tới server';

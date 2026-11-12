@@ -1,2 +1,13 @@
+# Dữ liệu do server ghi khi chạy và dữ liệu giả lập (tạo lại bằng: cd web && node generate-data.js)
 web/data.jsonl
+web/synthetic.jsonl
+
+# File riêng trên máy từng người
 CLAUDE.md
+.claude/
+.vscode/
+Thumbs.db
+desktop.ini
+
+# Mô tả ví dụ Blink của Arduino, không thuộc dự án
+Blink.txt

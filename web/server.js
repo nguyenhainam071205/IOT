@@ -3,6 +3,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { HORIZONS_S, forecastLatest } = require('./forecast');
 
 const PORT = 3000;
 const DATA_FILE = path.join(__dirname, 'data.jsonl');   // mỗi dòng một bản tin
@@ -17,6 +18,12 @@ if (fs.existsSync(DATA_FILE)) {
     .map(line => { try { return JSON.parse(line); } catch { return null; } })
     .filter(Boolean).slice(-MAX_HISTORY);
 }
+
+// Mô hình dự báo mực nước (tạo bằng train.js). Không có file thì dashboard chỉ không hiện dự báo.
+const MODEL_FILE = path.join(__dirname, 'model.json');
+let model = null;
+try { model = JSON.parse(fs.readFileSync(MODEL_FILE, 'utf8')); }
+catch { console.log('Chua co model.json, tat du bao. Chay: node generate-data.js && node train.js'); }
 
 // Kiểm tra body theo đúng hợp đồng trong README mục 4.1
 function validate(d) {
@@ -63,6 +70,11 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/history') {
     const limit = Math.min(parseInt(url.searchParams.get('limit')) || 300, MAX_HISTORY);
     return sendJson(res, 200, history.slice(-limit));
+  }
+
+  // Mực nước dự báo; h_cm = null khi chưa có model hoặc chưa đủ 5 phút dữ liệu liên tục
+  if (req.method === 'GET' && url.pathname === '/api/forecast') {
+    return sendJson(res, 200, { horizons_min: HORIZONS_S.map(s => s / 60), h_cm: forecastLatest(model, history) });
   }
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {

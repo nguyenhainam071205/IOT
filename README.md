@@ -1,6 +1,6 @@
 # Trạm đo lũ ESP32
 
-Firmware cho ESP32 đo ba đại lượng mỗi giây và gửi về web server qua WiFi:
+ESP32 đo ba đại lượng mỗi giây rồi gửi về web server qua WiFi. Web server lưu dữ liệu, vẽ dashboard và dự báo mực nước 5 và 10 phút tới.
 
 | Đại lượng | Cảm biến | Kết quả |
 |---|---|---|
@@ -8,37 +8,34 @@ Firmware cho ESP32 đo ba đại lượng mỗi giây và gửi về web server 
 | Lưu lượng | YF-S201 | `Q` (lít/phút) và tổng số lít |
 | Độ ẩm đất | Module LM393 (ngõ ra analog) | `W` (%) |
 
-Repo gồm hai thư mục:
-
 | Thư mục | Nội dung |
 |---|---|
-| `firmware/` | Code nạp vào ESP32 để đo (Arduino) |
-| `web/` | Web server nhận dữ liệu và giao diện dashboard (Node.js). Chạy: `cd web` rồi `node server.js`, mở `http://localhost:3000` |
+| `firmware/` | Code Arduino nạp vào ESP32 |
+| `web/` | Web server Node.js: nhận dữ liệu, dashboard, mô hình dự báo |
 
 Mục lục:
 
 1. [Chạy trong Arduino IDE](#1-chạy-trong-arduino-ide)
 2. [Code hoạt động thế nào](#2-code-hoạt-động-thế-nào)
 3. [Các công thức](#3-các-công-thức)
-4. [Dành cho người làm web server](#4-dành-cho-người-làm-web-server)
-
----
+4. [Web server](#4-web-server)
+5. [Dự báo mực nước](#5-dự-báo-mực-nước)
 
 ## 1. Chạy trong Arduino IDE
 
 ### 1.1. Cài đặt
 
 1. Cài Arduino IDE (bản 2.x).
-2. Cài board ESP32: **Tools → Board → Boards Manager**, tìm `esp32` (của Espressif Systems) và bấm Install.
+2. Cài board ESP32: vào **Tools → Board → Boards Manager**, tìm `esp32` (của Espressif Systems) rồi bấm Install.
    Nếu không thấy, thêm URL sau vào **File → Preferences → Additional boards manager URLs**:
    `https://espressif.github.io/arduino-esp32/package_esp32_index.json`
-3. Không cần cài thêm thư viện nào. `WiFi.h` và `HTTPClient.h` đã có sẵn trong gói board ESP32.
+3. Không cần cài thư viện nào khác, vì `WiFi.h` và `HTTPClient.h` có sẵn trong gói board ESP32.
 
 ### 1.2. Mở project
 
-Mở file `firmware/firmware.ino`. Arduino IDE tự mở tất cả file `.h` / `.cpp` cùng thư mục thành các tab, nạp từ tab `firmware` là nạp toàn bộ.
+Mở file `firmware/firmware.ino`. Arduino IDE sẽ mở mọi file `.h` / `.cpp` trong cùng thư mục thành các tab, và nạp từ tab `firmware` là nạp cả project.
 
-> Thư mục chứa code phải tên là `firmware` (trùng tên file `firmware.ino`), nếu không Arduino IDE sẽ đòi tạo thư mục mới.
+Thư mục chứa code phải tên là `firmware`, trùng với tên file `firmware.ino`. Nếu khác tên, Arduino IDE sẽ đòi tạo thư mục mới.
 
 ### 1.3. Sửa cấu hình trong `config.h`
 
@@ -67,7 +64,7 @@ Mở file `firmware/firmware.ino`. Arduino IDE tự mở tất cả file `.h` / 
 | | GND | GND |
 | | AO | GPIO 34 |
 
-ECHO và dây xung xuất ra 5V, trong khi chân ESP32 chỉ chịu được 3.3V, nên phải qua mạch chia áp (điện trở 1k nối tiếp tín hiệu, 2k xuống GND):
+Chân ECHO và dây xung xuất ra 5V, còn chân ESP32 chỉ chịu được 3.3V. Vì vậy hai tín hiệu này phải đi qua mạch chia áp, gồm điện trở 1k nối tiếp tín hiệu và 2k xuống GND:
 
 ```
 V_out = 5V × 2k / (1k + 2k) ≈ 3.33V
@@ -75,9 +72,9 @@ V_out = 5V × 2k / (1k + 2k) ≈ 3.33V
 
 ### 1.5. Nạp và xem kết quả
 
-1. **Tools → Board**: chọn `ESP32 Dev Module`. **Tools → Port**: chọn cổng COM của ESP32.
-2. Bấm **Upload**. Nếu kẹt ở `Connecting...`, giữ nút BOOT trên board cho tới khi bắt đầu nạp.
-3. Mở **Serial Monitor**, chọn **115200 baud**. Mỗi giây có một dòng:
+1. Ở **Tools → Board** chọn `ESP32 Dev Module`, ở **Tools → Port** chọn cổng COM của ESP32.
+2. Bấm **Upload**. Nếu kẹt ở `Connecting...` thì giữ nút BOOT trên board cho tới khi bắt đầu nạp.
+3. Mở **Serial Monitor** ở 115200 baud. Mỗi giây sẽ có một dòng:
 
 ```
 D_raw: 24.7 | D_loc: 24.6 cm | H_nuoc: 5.4 cm | Muc: VANG | Luu luong: 4.00 L/phut (0.067 L) | Do am dat: 50.0 % (ADC 2450) | WiFi: OK
@@ -94,11 +91,9 @@ Các dòng khác có thể gặp:
 | `POST report -> -1` | Số âm: không kết nối được tới server (sai IP, server chưa chạy, bị tường lửa chặn) |
 | `POST report bo qua: chua co WiFi` | Chưa có WiFi nên không gửi |
 
----
-
 ## 2. Code hoạt động thế nào
 
-### 2.1. Các file (trong `firmware/`)
+### 2.1. Các file trong `firmware/`
 
 | File | Nhiệm vụ |
 |---|---|
@@ -114,13 +109,13 @@ Các dòng khác có thể gặp:
 ### 2.2. `setup()`
 
 1. Mở Serial 115200 baud.
-2. `waterLevelInit()`: cấu hình chân TRIG / ECHO.
-3. `flowInit()`: gắn ngắt cạnh xuống trên GPIO 27 để đếm xung.
-4. `uplinkInit()`: kết nối WiFi, chờ tối đa 15 giây. Nếu chưa được thì vẫn chạy tiếp và thử lại sau.
+2. `waterLevelInit()` cấu hình chân TRIG / ECHO.
+3. `flowInit()` gắn ngắt cạnh xuống trên GPIO 27 để đếm xung.
+4. `uplinkInit()` kết nối WiFi và chờ tối đa 15 giây. Nếu chưa kết nối được thì vẫn chạy tiếp và thử lại sau.
 
 ### 2.3. `loop()`
 
-`uplinkMaintain()` chạy liên tục: nếu rớt WiFi thì thử kết nối lại mỗi 10 giây. Phần còn lại chạy mỗi 1 giây (`INTERVAL_MS`):
+`uplinkMaintain()` chạy liên tục và thử kết nối lại WiFi mỗi 10 giây nếu bị rớt. Phần còn lại chạy mỗi 1 giây (`INTERVAL_MS`):
 
 ```
 1) flowUpdate()        lấy số xung đếm được -> Q, tổng lít
@@ -134,13 +129,11 @@ Các dòng khác có thể gặp:
 6) Chưa gửi lần nào, hoặc đã qua 5 giây    -> gửi POST "report"
 ```
 
----
-
 ## 3. Các công thức
 
 ### 3.1. Khoảng cách từ HC-SR04 (`water_level.cpp`)
 
-Cảm biến phát xung siêu âm, code đo thời gian `t` (µs) từ lúc phát tới lúc nhận tiếng dội.
+Cảm biến phát xung siêu âm, và code đo thời gian `t` (µs) từ lúc phát tới lúc nhận tiếng dội.
 
 ```
 v = 331.3 + 0.606 × T          (m/s, T là nhiệt độ °C = TEMP_C)
@@ -149,11 +142,11 @@ v_cm = v / 10000               (đổi sang cm/µs)
 D = t × v_cm / 2 + OFFSET_CM   (cm)
 ```
 
-Chia 2 vì âm thanh đi tới mặt nước rồi quay về.
+Phải chia 2 vì âm thanh đi tới mặt nước rồi mới quay về.
 
 Ví dụ với `T = 30°C`: `v = 349.48 m/s = 0.034948 cm/µs`. Nếu `t = 1408 µs` thì `D = 1408 × 0.034948 / 2 ≈ 24.6 cm`.
 
-Mỗi lần đo chờ echo tối đa 30 ms. Nếu mất echo, code thử lại tối đa 3 lần; vẫn không được thì chu kỳ đó không có mẫu mới.
+Mỗi lần đo chờ echo tối đa 30 ms. Mất echo thì code thử lại, tối đa 3 lần; nếu vẫn không được thì chu kỳ đó không có mẫu mới.
 
 ### 3.2. Lọc trung bình động (`water_level.cpp`)
 
@@ -161,9 +154,9 @@ Mỗi lần đo chờ echo tối đa 30 ms. Nếu mất echo, code thử lại t
 D_loc = (D[n] + D[n-1] + ... + D[n-N+1]) / N        với N = N_MA = 5
 ```
 
-`D_loc` là trung bình của 5 mẫu gần nhất, giúp giảm nhiễu do sóng nước. Code giữ một tổng chạy: mỗi mẫu mới thì trừ mẫu cũ nhất, cộng mẫu mới, rồi chia cho số mẫu.
+`D_loc` là trung bình của 5 mẫu gần nhất, giúp giảm nhiễu do sóng nước. Code giữ một tổng chạy: mỗi khi có mẫu mới thì trừ mẫu cũ nhất, cộng mẫu mới, rồi chia cho số mẫu.
 
-Trong 5 giây đầu chưa đủ mẫu, `D_loc` là trung bình của các mẫu đang có, và code chưa xét cảnh báo.
+Trong 5 giây đầu chưa đủ mẫu, `D_loc` là trung bình của các mẫu đang có và code chưa xét cảnh báo.
 
 ### 3.3. Mực nước và mức cảnh báo (`water_level.cpp`)
 
@@ -171,9 +164,9 @@ Trong 5 giây đầu chưa đủ mẫu, `D_loc` là trung bình của các mẫu
 H_nuoc = H_tram − D_loc        (cm, H_tram = H_TRAM_CM = 30)
 ```
 
-Cảm biến gắn ở độ cao `H_tram` so với đáy và nhìn xuống. Nước càng dâng thì `D_loc` càng nhỏ, `H_nuoc` càng lớn. Nếu kết quả âm thì lấy bằng 0.
+Cảm biến gắn ở độ cao `H_tram` so với đáy và nhìn xuống. Nước dâng thì `D_loc` nhỏ đi và `H_nuoc` lớn lên. Kết quả âm thì lấy bằng 0.
 
-Mức cảnh báo có độ trễ `HYST_CM = 0.5 cm` khi hạ mức, để không bị đổi qua lại liên tục khi nước dao động quanh ngưỡng:
+Khi hạ mức, cảnh báo có độ trễ `HYST_CM = 0.5 cm` để không đổi qua đổi lại liên tục khi nước dao động quanh ngưỡng:
 
 | Mức | Lên mức khi | Hạ mức khi |
 |---|---|---|
@@ -185,7 +178,7 @@ Ví dụ: `D_loc = 24.6 cm` thì `H_nuoc = 30 − 24.6 = 5.4 cm`, mức VÀNG.
 
 ### 3.4. Lưu lượng từ YF-S201 (`flow.cpp`)
 
-Cảm biến phát xung khi nước chảy qua, mỗi xung làm ngắt tăng biến đếm lên 1. Mỗi chu kỳ, code lấy số xung rồi đặt lại về 0.
+Nước chảy qua thì cảm biến phát xung, và mỗi xung làm ngắt tăng biến đếm thêm 1. Mỗi chu kỳ code lấy số xung rồi đặt lại về 0.
 
 ```
 f = số_xung × 1000 / elapsed_ms     (Hz, số xung mỗi giây)
@@ -196,14 +189,14 @@ Tổng lít += (Q / 60) × (elapsed_ms / 1000)
 ```
 
 - `f = 7.5 × Q` là đặc tính của YF-S201: 7.5 xung/giây ứng với 1 lít/phút.
-- Code chia cho `elapsed_ms` thực tế chứ không giả định đúng 1000 ms, vì việc đo siêu âm và gửi HTTP có thể làm chu kỳ dài hơn 1 giây.
-- `Q / 60` đổi lít/phút sang lít/giây, nhân với số giây của chu kỳ ra số lít chảy trong chu kỳ đó. Gộp lại tương đương 450 xung cho 1 lít.
+- Code chia cho `elapsed_ms` đo thực tế thay vì giả định đúng 1000 ms, vì đo siêu âm và gửi HTTP có thể làm chu kỳ dài hơn 1 giây.
+- `Q / 60` đổi lít/phút sang lít/giây, nhân với số giây của chu kỳ thì ra số lít chảy qua trong chu kỳ đó. Gộp lại, 450 xung ứng với 1 lít.
 
-Ví dụ: 30 xung trong 1000 ms thì `f = 30 Hz`, `Q = 30 / 7.5 = 4.00 lít/phút`, tổng cộng thêm `4 / 60 × 1 ≈ 0.067 lít`.
+Ví dụ: 30 xung trong 1000 ms thì `f = 30 Hz`, `Q = 30 / 7.5 = 4.00 lít/phút`, và tổng cộng thêm `4 / 60 × 1 ≈ 0.067 lít`.
 
 ### 3.5. Độ ẩm đất (`soil.cpp`)
 
-Code đọc ADC 10 lần (cách nhau 2 ms) rồi lấy trung bình để giảm nhiễu. ADC của ESP32 cho giá trị từ 0 tới 4095; với module này đất càng khô thì ADC càng cao.
+Code đọc ADC 10 lần, cách nhau 2 ms, rồi lấy trung bình để giảm nhiễu. ADC của ESP32 cho giá trị từ 0 tới 4095, và với module này đất càng khô thì ADC càng cao.
 
 ```
 W = (ADC_kho − ADC) / (ADC_kho − ADC_uot) × 100      (%)
@@ -213,13 +206,35 @@ Kết quả được giới hạn trong khoảng 0 tới 100.
 
 Ví dụ với `ADC_kho = 3500`, `ADC_uot = 1400`, đọc được `ADC = 2450`: `W = (3500 − 2450) / (3500 − 1400) × 100 = 50%`.
 
-**Hiệu chuẩn:** hai giá trị trong `config.h` chỉ là ví dụ. Để đầu dò ngoài không khí, đọc số `ADC` trên Serial và ghi vào `ADC_KHO`; nhúng đầu dò vào nước, đọc số `ADC` và ghi vào `ADC_UOT`.
+Hai giá trị hiệu chuẩn trong `config.h` chỉ là ví dụ. Để đầu dò ngoài không khí, đọc số `ADC` trên Serial và ghi vào `ADC_KHO`. Sau đó nhúng đầu dò vào nước, đọc số `ADC` và ghi vào `ADC_UOT`.
 
----
+## 4. Web server
 
-## 4. Dành cho người làm web server
+Thư mục `web/` chỉ dùng module có sẵn của Node.js nên không cần `npm install`. Cài Node.js bản LTS từ https://nodejs.org rồi chạy:
 
-ESP32 là bên gửi (HTTP client). Web server chỉ cần mở một endpoint nhận `POST` với body JSON.
+```powershell
+cd web
+node server.js
+```
+
+Dashboard ở `http://localhost:3000`, tự làm mới mỗi 5 giây.
+
+| File | Nhiệm vụ |
+|---|---|
+| `server.js` | Nhận `POST /flood`, ghi từng bản tin vào `data.jsonl`, trả dữ liệu cho dashboard |
+| `index.html` | Dashboard: mức cảnh báo, số liệu, biểu đồ mực nước, dự báo, bảng bản tin |
+| `forecast.js`, `generate-data.js`, `train.js`, `model.json` | Dự báo mực nước (xem mục 5) |
+
+Các đường dẫn server có:
+
+| Đường dẫn | Dùng cho |
+|---|---|
+| `POST /flood` | ESP32 gửi bản tin. Body sai định dạng bị trả mã 400 |
+| `GET /` | Dashboard |
+| `GET /api/history?limit=N` | N bản tin gần nhất (mặc định 300) |
+| `GET /api/forecast` | Mực nước dự báo, ví dụ `{"horizons_min":[5,10],"h_cm":[5.8,7.7]}`. `h_cm` là `null` khi chưa có model hoặc chưa đủ 5 phút dữ liệu liên tục |
+
+Server giữ 2000 bản tin gần nhất trong bộ nhớ, còn `data.jsonl` thì lưu tất cả và được nạp lại khi khởi động. Hai ngưỡng `YELLOW_CM` / `RED_CM` ở đầu đoạn script trong `index.html` phải khớp với `config.h`.
 
 ### 4.1. Request ESP32 gửi
 
@@ -228,7 +243,7 @@ POST http://<IP-server>:3000/flood
 Content-Type: application/json
 ```
 
-Đường dẫn và cổng lấy từ `SERVER_URL` trong `config.h`. Hai bên thống nhất rồi sửa hằng số này cho khớp.
+Đường dẫn và cổng lấy từ `SERVER_URL` trong `config.h`.
 
 Body:
 
@@ -263,47 +278,30 @@ Body:
 | `report` | Lần đầu khoảng 5 giây sau khi khởi động (lúc bộ lọc đủ mẫu), sau đó mỗi 5 giây (`REPORT_INTERVAL_MS`) |
 | `alert` | Ngay khi mức cảnh báo đổi, cả lúc tăng lẫn lúc hạ (ví dụ `yellow` về `normal`) |
 
-Có thể nhận `alert` và `report` liền nhau trong cùng một giây.
+Server có thể nhận `alert` và `report` liền nhau trong cùng một giây.
 
 ### 4.3. Server cần trả về gì
 
-- Trả mã **2xx** (ví dụ `200`) là ESP32 coi như gửi thành công. ESP32 không đọc nội dung body trả về.
-- Trả lời trong vòng **5 giây**. Quá thời gian này ESP32 coi là lỗi, và trong lúc chờ thì ESP32 tạm ngừng đo.
+ESP32 coi mã 2xx (ví dụ `200`) là gửi thành công và không đọc body trả về. Server phải trả lời trong vòng 5 giây; quá thời gian đó ESP32 coi là lỗi, và trong lúc chờ thì ESP32 tạm ngừng đo.
 
-### 4.4. Những điều cần biết khi thiết kế server
+### 4.4. Những điều cần biết về dữ liệu
 
-- **Không có thời gian trong JSON.** ESP32 không có đồng hồ thực, server tự gắn thời gian lúc nhận.
-- **Không có mã thiết bị.** Nếu sau này có nhiều trạm, cần thêm một trường `device_id` vào JSON trong `uplink.cpp`.
-- **Không gửi lại khi lỗi.** Nếu mất WiFi hoặc server không trả lời, bản tin đó bị bỏ. Một `alert` bị mất sẽ không được gửi lại; server chỉ biết mức mới qua `report` kế tiếp (tối đa 5 giây sau). Vì vậy nên lấy `level` từ mọi bản tin, không chỉ từ `alert`.
-- **`total_l` về 0 khi ESP32 khởi động lại.** Nếu thấy giá trị nhỏ hơn lần trước thì trạm vừa reset.
-- **`flow_lpm` là giá trị tức thời** của 1 giây ngay trước khi gửi, không phải trung bình 5 giây. Muốn biết lượng nước giữa hai bản tin thì lấy hiệu `total_l`.
-- **Chỉ có HTTP, không có HTTPS**, và không có xác thực.
-- **Phát hiện trạm mất kết nối:** nếu quá khoảng 6 phút không nhận được bản tin nào thì coi như trạm offline.
+- JSON không có thời gian. ESP32 không có đồng hồ thực nên server tự gắn thời gian lúc nhận (`received_at`).
+- JSON không có mã thiết bị. Nếu sau này có nhiều trạm thì cần thêm trường `device_id` trong `uplink.cpp`.
+- ESP32 không gửi lại khi lỗi. Nếu mất WiFi hoặc server không trả lời, bản tin đó bị bỏ. Một `alert` bị mất thì server chỉ biết mức mới qua `report` kế tiếp (tối đa 5 giây sau), nên hãy lấy `level` từ mọi bản tin chứ đừng chỉ dựa vào `alert`.
+- `total_l` về 0 khi ESP32 khởi động lại. Giá trị nhỏ hơn lần trước nghĩa là trạm vừa reset.
+- `flow_lpm` là giá trị tức thời của 1 giây ngay trước khi gửi. Muốn biết lượng nước giữa hai bản tin thì lấy hiệu `total_l`.
+- Kết nối chỉ dùng HTTP, không có HTTPS và không có xác thực.
+- Dashboard báo mất kết nối khi quá 20 giây không nhận được bản tin nào, tức là đã lỡ 3 đến 4 bản tin.
 
 ### 4.5. Điều kiện mạng
 
-- Máy chạy server và ESP32 phải cùng mạng WiFi/LAN (hoặc server có IP công khai).
-- Server phải lắng nghe trên `0.0.0.0`, không phải chỉ `localhost` / `127.0.0.1`.
-- Mở cổng (ví dụ 3000) trên tường lửa của máy chạy server.
-- Lấy IP của máy chạy server bằng `ipconfig` (Windows) rồi ghi vào `SERVER_URL`. Nên đặt IP tĩnh cho máy này để IP không đổi.
+- Máy chạy server và ESP32 phải cùng mạng WiFi/LAN, hoặc server có IP công khai.
+- Server lắng nghe trên `0.0.0.0` chứ không chỉ `localhost`, nên các máy khác trong mạng gửi tới được.
+- Mở cổng 3000 trên tường lửa của máy chạy server. Lần đầu chạy, Windows hỏi thì chọn Allow.
+- Lấy IP của máy chạy server bằng `ipconfig` (dòng IPv4 của card WiFi) rồi ghi vào `SERVER_URL`. Nên đặt IP tĩnh cho máy này, vì IP đổi thì phải sửa `config.h` và nạp lại ESP32.
 
-### 4.6. Ví dụ server tối thiểu (Node.js + Express)
-
-```js
-const express = require('express');
-const app = express();
-app.use(express.json());
-
-app.post('/flood', (req, res) => {
-  const data = { ...req.body, received_at: new Date().toISOString() };
-  console.log(data);          // thay bằng lưu database / đẩy lên giao diện
-  res.sendStatus(200);
-});
-
-app.listen(3000, '0.0.0.0', () => console.log('Dang nghe cong 3000'));
-```
-
-### 4.7. Thử server khi chưa có ESP32
+### 4.6. Thử server khi chưa có ESP32
 
 Gửi một bản tin giả bằng PowerShell:
 
@@ -312,4 +310,66 @@ $body = '{"event":"alert","level":"yellow","h_nuoc_cm":5.4,"d_loc_cm":24.6,"h_tr
 Invoke-RestMethod -Uri http://localhost:3000/flood -Method Post -ContentType 'application/json' -Body $body
 ```
 
-Khi chạy với ESP32 thật, dòng `POST report -> 200` trên Serial Monitor xác nhận server đã nhận được.
+Khi chạy với ESP32 thật, dòng `POST report -> 200` trên Serial Monitor cho biết server đã nhận được.
+
+## 5. Dự báo mực nước
+
+Dashboard dự báo mực nước sau 5 và 10 phút, vẽ thành đường nét đứt nối tiếp biểu đồ. Nếu mực nước dự báo lên mức cao hơn mức hiện tại, dashboard hiện thêm dòng như "Dự báo: có thể lên CẢNH BÁO VÀNG trong khoảng 5 phút nữa (5.8 cm)". Trạm mất kết nối thì dashboard không hiện dự báo.
+
+Mô hình được huấn luyện sẵn và lưu trong `web/model.json`, nên chạy `node server.js` là có dự báo. Các bước dưới đây chỉ cần khi muốn huấn luyện lại.
+
+### 5.1. Dữ liệu giả lập (`generate-data.js`)
+
+Nhóm chưa có dữ liệu thật, nên script này mô phỏng trạm theo chuỗi mưa → đất ẩm dần → nước chảy qua ống (YF-S201) → bể dâng:
+
+- Mỗi cơn mưa dài 10 đến 60 phút, cường độ đỉnh 5 đến 60 mm/h, hai cơn cách nhau 1 đến 5 giờ.
+- Đất càng ướt thì lượng nước chảy tràn càng nhiều. Dòng chảy tới ống chậm khoảng 2 phút so với mưa.
+- Bể nhận nước theo lưu lượng và thoát nước theo mực nước, với hằng số thời gian 15 phút.
+- Số đo có cộng nhiễu như cảm biến thật. Mức cảnh báo dùng cùng ngưỡng và độ trễ với firmware, và có bản tin `alert` mỗi khi đổi mức.
+
+```powershell
+cd web
+node generate-data.js          # 30 ngày, seed 1 -> synthetic.jsonl (khoảng 90 MB, không đưa lên git)
+node generate-data.js 3 42     # 3 ngày, seed 42
+```
+
+Mỗi bản tin có cùng định dạng với `data.jsonl` mà server ghi, cách nhau 5 giây như ESP32. Cùng seed thì ra cùng bộ dữ liệu.
+
+### 5.2. Mô hình (`forecast.js`)
+
+Mô hình là hồi quy tuyến tính, dự báo độ thay đổi của mực nước sau 5 và 10 phút. Đầu vào là 8 đặc trưng lấy từ 5 phút gần nhất:
+
+- mực nước, lưu lượng và độ ẩm đất hiện tại;
+- mực nước đã dâng bao nhiêu trong 30 giây, 1, 2 và 5 phút qua;
+- lưu lượng đã thay đổi bao nhiêu trong 1 phút qua.
+
+Mô hình học bằng gradient descent để có thể huấn luyện tiếp (fine-tune) trên dữ liệu mới từ chính các trọng số cũ. `train.js` (huấn luyện) và `server.js` (dự báo) dùng chung file này, nên đặc trưng lúc huấn luyện và lúc dự báo luôn khớp nhau.
+
+### 5.3. Huấn luyện (`train.js`)
+
+```powershell
+node train.js                          # pre-train từ đầu trên synthetic.jsonl
+node train.js --finetune data.jsonl    # fine-tune model.json trên dữ liệu trạm thật
+```
+
+Script chia dữ liệu theo thời gian: 80% đầu để huấn luyện và 20% cuối để kiểm tra. Sai số được so với cách đoán đơn giản nhất là giữ nguyên mực nước hiện tại. Nếu mô hình không tốt hơn cách đó thì script không ghi đè `model.json`. Huấn luyện xong phải khởi động lại `server.js` để nạp model mới.
+
+`model.json` hiện tại được huấn luyện 1500 vòng trên 30 ngày giả lập (khoảng 518.000 mẫu, 43 lần lên mức ĐỎ), mất khoảng 45 giây. Sai số kiểm tra hết giảm sau khoảng 1500 vòng, nên huấn luyện thêm cũng không tốt hơn.
+
+Sai số tuyệt đối trung bình khi thử trên 7 ngày giả lập mà mô hình chưa từng thấy (seed 99):
+
+| Dự báo | Mô hình, mọi lúc | Giữ nguyên, mọi lúc | Mô hình, lúc nước đang lên | Giữ nguyên, lúc nước đang lên |
+|---|---|---|---|---|
+| +5 phút | 0.14 cm | 0.33 cm | 0.22 cm | 1.39 cm |
+| +10 phút | 0.23 cm | 0.51 cm | 0.94 cm | 2.78 cm |
+
+"Lúc nước đang lên" là những thời điểm mà 10 phút sau nước cao hơn ít nhất 1 cm. Đây là lúc dự báo có ích nhất, và cũng là lúc cách đoán giữ nguyên mực nước sai nhiều nhất.
+
+Để thử fine-tune, nhóm mô phỏng một trạm khác có bể thoát nước nhanh hơn và nước vào nhiều hơn. Sau fine-tune, sai số +5 phút giảm từ 0.24 cm xuống 0.18 cm và sai số +10 phút giảm từ 0.37 cm xuống 0.32 cm.
+
+### 5.4. Giới hạn
+
+- Mô hình chỉ học được những gì có trong dữ liệu. Dữ liệu giả lập đi theo giả định vật lý của `generate-data.js`, nên dự báo cho trạm thật chỉ đáng tin sau khi đã fine-tune trên `data.jsonl` của trạm.
+- Fine-tune cần ít nhất 100 mẫu, tức khoảng 25 phút dữ liệu liên tục. Muốn mô hình học được lúc nước dâng thì trong dữ liệu phải có những lần nước dâng thật, ví dụ đổ nước vào bể với nhiều tốc độ khác nhau.
+- Trạm chưa đo mưa. Thêm cảm biến mưa hoặc lấy lượng mưa từ API thời tiết sẽ cho mô hình biết trước nước sắp dâng.
+- Mô hình tuyến tính đủ cho một bể nước đơn giản. Nếu sai số trên dữ liệu thật vẫn lớn thì có thể thử mạng nơ-ron nhỏ (MLP) hoặc LightGBM với cùng bộ đặc trưng.
