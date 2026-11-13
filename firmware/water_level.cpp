@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "config.h"
 #include "water_level.h"
+#include "alert.h"         // levelFromValue()
 
 // ---------------------- TRẠNG THÁI NỘI BỘ ----------------------
 // Bộ lọc trung bình động: bộ đệm vòng + tổng chạy
@@ -51,15 +52,8 @@ static float movingAverage(float d) {
 }
 
 // ---------------------- MỨC CẢNH BÁO ----------------------
-// Lên mức: so ngưỡng thẳng. Hạ mức: phải tụt dưới (ngưỡng - HYST_CM) mới hạ,
+// Dùng levelFromValue() (alert.cpp): hạ mức phải tụt dưới (ngưỡng - HYST_CM) mới hạ,
 // tránh gửi cảnh báo liên tục khi mực nước dao động quanh ngưỡng.
-static Level computeLevel(float h, Level prev) {
-  if (h >= RED_CM)                                 return RED;
-  if (prev == RED    && h >= RED_CM    - HYST_CM)  return RED;
-  if (h >= YELLOW_CM)                              return YELLOW;
-  if (prev == YELLOW && h >= YELLOW_CM - HYST_CM)  return YELLOW;
-  return NORMAL;
-}
 
 const char* levelName(Level l) {
   switch (l) {
@@ -95,7 +89,10 @@ void waterLevelUpdate(Measurement& m) {
   if (m.hNuoc < 0) m.hNuoc = 0;                   // nước thấp hơn mốc chuẩn -> coi như 0
 
   // Chỉ xét cảnh báo khi bộ lọc đã đầy, tránh cảnh báo giả lúc mới bật
-  m.level = m.filterReady ? computeLevel(m.hNuoc, currentLevel) : currentLevel;
+  m.waterLevel = m.filterReady
+      ? levelFromValue(m.hNuoc, YELLOW_CM, RED_CM, HYST_CM, currentLevel)
+      : currentLevel;
+  m.level = m.waterLevel;                         // alertUpdate() ghép thêm lũ quét
 }
 
 Level waterLevelCurrent() {

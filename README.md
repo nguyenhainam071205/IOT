@@ -1,6 +1,6 @@
 # Trạm đo lũ ESP32
 
-ESP32 đo ba đại lượng mỗi giây rồi gửi về web server qua WiFi. Web server lưu dữ liệu, vẽ dashboard và dự báo mực nước 5 và 10 phút tới.
+ESP32 đo ba đại lượng mỗi giây rồi gửi về web server qua WiFi. Web server lưu dữ liệu, vẽ dashboard, cảnh báo lũ quét (lưu lượng + độ ẩm đất) và dự báo mực nước, lưu lượng, độ ẩm đất 5 và 10 phút tới.
 
 | Đại lượng | Cảm biến | Kết quả |
 |---|---|---|
@@ -19,7 +19,7 @@ Mục lục:
 2. [Code hoạt động thế nào](#2-code-hoạt-động-thế-nào)
 3. [Các công thức](#3-các-công-thức)
 4. [Web server](#4-web-server)
-5. [Dự báo mực nước](#5-dự-báo-mực-nước)
+5. [Dự báo mực nước, lưu lượng và độ ẩm đất](#5-dự-báo-mực-nước-lưu-lượng-và-độ-ẩm-đất)
 
 ## 1. Chạy trong Arduino IDE
 
@@ -47,7 +47,9 @@ Thư mục chứa code phải tên là `firmware`, trùng với tên file `firmw
 | `TEMP_C` | Nhiệt độ môi trường, dùng để bù tốc độ âm thanh |
 | `OFFSET_CM` | Độ lệch cố định của HC-SR04 sau khi so với thước |
 | `ADC_KHO`, `ADC_UOT` | Hai mốc hiệu chuẩn độ ẩm đất (xem mục 3.5) |
-| `YELLOW_CM`, `RED_CM`, `HYST_CM` | Ngưỡng cảnh báo và độ trễ |
+| `YELLOW_CM`, `RED_CM`, `HYST_CM` | Ngưỡng cảnh báo mực nước và độ trễ |
+| `FLOW_YELLOW_LPM`, `FLOW_RED_LPM`, `FLOW_HYST_LPM`, `FLOW_MA_N` | Ngưỡng cảnh báo lưu lượng, độ trễ và số mẫu trung bình (mục 3.6) |
+| `SOIL_YELLOW_PCT`, `SOIL_RED_PCT`, `SOIL_HYST_PCT` | Ngưỡng cảnh báo độ ẩm đất và độ trễ (mục 3.6) |
 
 ### 1.4. Đấu nối
 
@@ -103,6 +105,7 @@ Các dòng khác có thể gặp:
 | `water_level.*` | HC-SR04: đo khoảng cách, lọc trung bình động, tính mực nước, mức cảnh báo |
 | `flow.*` | YF-S201: đếm xung bằng ngắt, tính lưu lượng |
 | `soil.*` | Đọc ADC và đổi ra % độ ẩm đất |
+| `alert.*` | Mức cảnh báo lưu lượng, độ ẩm đất, lũ quét và mức tổng hợp |
 | `uplink.*` | Kết nối WiFi và gửi HTTP POST JSON |
 | `display.*` | In một dòng số liệu ra Serial |
 
@@ -121,12 +124,13 @@ Các dòng khác có thể gặp:
 1) flowUpdate()        lấy số xung đếm được -> Q, tổng lít
 2) waterLevelUpdate()  đo khoảng cách -> D_loc -> H_nuoc -> mức cảnh báo
 3) soilUpdate()        đọc ADC -> W %
-4) printStatus()       in một dòng ra Serial
+4) alertUpdate()       Q trung bình, mức Q / W / lũ quét, mức tổng hợp
+5) printStatus()       in một dòng ra Serial
 
    Nếu bộ lọc chưa đủ 5 mẫu: dừng ở đây.
 
-5) Mức cảnh báo khác mức đang có hiệu lực  -> gửi POST "alert"
-6) Chưa gửi lần nào, hoặc đã qua 5 giây    -> gửi POST "report"
+6) Có mức nào (nước, Q, W, lũ quét) khác mức đang có hiệu lực -> gửi POST "alert"
+7) Chưa gửi lần nào, hoặc đã qua 5 giây                       -> gửi POST "report"
 ```
 
 ## 3. Các công thức
@@ -208,6 +212,29 @@ Ví dụ với `ADC_kho = 3500`, `ADC_uot = 1400`, đọc được `ADC = 2450`:
 
 Hai giá trị hiệu chuẩn trong `config.h` chỉ là ví dụ. Để đầu dò ngoài không khí, đọc số `ADC` trên Serial và ghi vào `ADC_KHO`. Sau đó nhúng đầu dò vào nước, đọc số `ADC` và ghi vào `ADC_UOT`.
 
+### 3.6. Cảnh báo lưu lượng, độ ẩm đất và lũ quét (`alert.cpp`)
+
+Lưu lượng và độ ẩm đất cũng có mức vàng/đỏ, dùng chung hàm `levelFromValue()` với mực nước (cùng kiểu độ trễ khi hạ mức). Lưu lượng được lấy trung bình động 5 mẫu (`FLOW_MA_N`, mỗi mẫu 1 giây) trước khi so với mốc, vì lưu lượng đo từng giây nhảy khá mạnh.
+
+| | Vàng | Đỏ | Độ trễ hạ mức |
+|---|---|---|---|
+| Lưu lượng Q (trung bình 5 giây) | `Q ≥ 10` L/phút | `Q ≥ 20` L/phút | 1 L/phút |
+| Độ ẩm đất W | `W ≥ 70` % | `W ≥ 90` % | 3 % |
+
+Các mốc này là giá trị đề xuất ban đầu, chưa được hiệu chuẩn tại chỗ đặt trạm. Hãy đổi trong `config.h` cho hợp với lưu lượng bình thường của bạn.
+
+**Lũ quét** ghép hai mức trên (`flashFloodLevel()`):
+
+| Mức lũ quét | Điều kiện |
+|---|---|
+| ĐỎ | Lưu lượng ≥ vàng **và** độ ẩm đất ≥ vàng cùng lúc: nước chảy mạnh trên nền đất đã no nước |
+| VÀNG | Chỉ một trong hai đạt mức đỏ: nước chảy rất mạnh, hoặc đất đã bão hòa |
+| BÌNH THƯỜNG | Còn lại |
+
+**Mức tổng hợp** (`level` trong JSON, hiện ở banner dashboard) là mức cao hơn giữa mực nước và lũ quét. Lưu lượng hoặc độ ẩm chỉ đạt vàng một mình thì chỉ đổi màu thẻ riêng, không đổi banner, để tránh báo động giả khi có mưa rào. Muốn ghép khác thì sửa hàm `flashFloodLevel()` (và `flashOf()` trong `index.html`, `flashFloodLevel()` trong `generate-data.js` cho khớp).
+
+ESP32 gửi `alert` ngay khi **bất kỳ** mức nào trong bốn mức (mực nước, lưu lượng, độ ẩm, lũ quét) đổi.
+
 ## 4. Web server
 
 Thư mục `web/` chỉ dùng module có sẵn của Node.js nên không cần `npm install`. Cài Node.js bản LTS từ https://nodejs.org rồi chạy:
@@ -222,8 +249,8 @@ Dashboard ở `http://localhost:3000`, tự làm mới mỗi 5 giây.
 | File | Nhiệm vụ |
 |---|---|
 | `server.js` | Nhận `POST /flood`, ghi từng bản tin vào `data.jsonl`, trả dữ liệu cho dashboard |
-| `index.html` | Dashboard: mức cảnh báo, số liệu, biểu đồ mực nước, dự báo, bảng bản tin |
-| `forecast.js`, `generate-data.js`, `train.js`, `model.json` | Dự báo mực nước (xem mục 5) |
+| `index.html` | Dashboard gồm 4 phần: (1) dữ liệu bây giờ, (2) dự báo số liệu, (3) mực nước theo thời gian, (4) bản tin trong 1 tuần qua theo ngày. Ô chọn ngày cạnh tiêu đề (hoặc bấm một dòng trong bảng 4) cho xem lại một ngày trong tuần: phần 1 hiện bản tin cuối ngày, phần 3 hiện mực nước cả ngày, phần 2 (dự báo) bị ẩn |
+| `forecast.js`, `generate-data.js`, `train.js`, `model.json` | Dự báo mực nước, lưu lượng, độ ẩm đất (xem mục 5) |
 
 Các đường dẫn server có:
 
@@ -232,9 +259,11 @@ Các đường dẫn server có:
 | `POST /flood` | ESP32 gửi bản tin. Body sai định dạng bị trả mã 400 |
 | `GET /` | Dashboard |
 | `GET /api/history?limit=N` | N bản tin gần nhất (mặc định 300) |
-| `GET /api/forecast` | Mực nước dự báo, ví dụ `{"horizons_min":[5,10],"h_cm":[5.8,7.7]}`. `h_cm` là `null` khi chưa có model hoặc chưa đủ 5 phút dữ liệu liên tục |
+| `GET /api/daily?days=N` | Trung bình theo ngày của N ngày gần nhất (mặc định 7, tối đa 31, ngày cũ nhất trước), ví dụ `{"date":"2026-11-12","n":14623,"soil_pct":68.4,"h_nuoc_cm":1.09,"flow_lpm":0.43,"total_l":501.8}`. Ngày không có dữ liệu thì `n = 0` và các số là `null` |
+| `GET /api/day?date=YYYY-MM-DD` | Xem lại một ngày: `last` là bản tin cuối ngày (hoặc `null` nếu không có dữ liệu) và `points` là mực nước trung bình mỗi 2 phút trong ngày |
+| `GET /api/forecast` | Dự báo mực nước, lưu lượng, độ ẩm đất, ví dụ `{"horizons_min":[5,10],"h_cm":[5.8,7.7],"flow_lpm":[8.1,12.0],"soil_pct":[73.0,75.0]}`. Cả ba là `null` khi chưa có model hoặc chưa đủ 5 phút dữ liệu liên tục |
 
-Server giữ 2000 bản tin gần nhất trong bộ nhớ, còn `data.jsonl` thì lưu tất cả và được nạp lại khi khởi động. Hai ngưỡng `YELLOW_CM` / `RED_CM` ở đầu đoạn script trong `index.html` phải khớp với `config.h`.
+Server giữ 2000 bản tin gần nhất trong bộ nhớ (dùng cho biểu đồ và dự báo), còn `data.jsonl` thì lưu tất cả và được nạp lại khi khởi động. Bảng "1 tuần qua" tính trên toàn bộ `data.jsonl`: độ ẩm, mực nước và lưu lượng trung bình lấy từ các bản tin định kỳ trong ngày (theo giờ của máy chạy server); tổng lưu lượng là lượng nước chảy qua trong ngày, cộng các phần tăng của `total_l` (trạm reset thì `total_l` về 0 và được tính lại từ đầu). Hai ngưỡng `YELLOW_CM` / `RED_CM` ở đầu đoạn script trong `index.html` phải khớp với `config.h`.
 
 ### 4.1. Request ESP32 gửi
 
@@ -251,10 +280,15 @@ Body:
 {
   "event": "alert",
   "level": "yellow",
+  "water_level": "yellow",
+  "flow_level": "normal",
+  "soil_level": "normal",
+  "flash_level": "normal",
   "h_nuoc_cm": 5.4,
   "d_loc_cm": 24.6,
   "h_tram_cm": 30.0,
   "flow_lpm": 4.00,
+  "flow_avg_lpm": 4.00,
   "total_l": 0.067,
   "soil_pct": 50.0
 }
@@ -263,7 +297,9 @@ Body:
 | Trường | Kiểu | Ý nghĩa |
 |---|---|---|
 | `event` | chuỗi | `"alert"`: mức cảnh báo vừa đổi. `"report"`: báo cáo định kỳ |
-| `level` | chuỗi | `"normal"`, `"yellow"` hoặc `"red"` |
+| `level` | chuỗi | Mức tổng hợp: `"normal"`, `"yellow"` hoặc `"red"` (mức cao hơn giữa mực nước và lũ quét, mục 3.6) |
+| `water_level`, `flow_level`, `soil_level`, `flash_level` | chuỗi | Mức theo mực nước, lưu lượng, độ ẩm đất và lũ quét. Tùy chọn: bản tin cũ không có |
+| `flow_avg_lpm` | số | Lưu lượng trung bình 5 giây dùng để cảnh báo. Tùy chọn |
 | `h_nuoc_cm` | số | Mực nước (cm), luôn ≥ 0 |
 | `d_loc_cm` | số | Khoảng cách đã lọc từ cảm biến tới mặt nước (cm) |
 | `h_tram_cm` | số | Chiều cao lắp cảm biến (cm), hằng số cấu hình |
@@ -276,7 +312,7 @@ Body:
 | `event` | Thời điểm |
 |---|---|
 | `report` | Lần đầu khoảng 5 giây sau khi khởi động (lúc bộ lọc đủ mẫu), sau đó mỗi 5 giây (`REPORT_INTERVAL_MS`) |
-| `alert` | Ngay khi mức cảnh báo đổi, cả lúc tăng lẫn lúc hạ (ví dụ `yellow` về `normal`) |
+| `alert` | Ngay khi mức cảnh báo nào đó đổi (mực nước, lưu lượng, độ ẩm đất hoặc lũ quét), cả lúc tăng lẫn lúc hạ (ví dụ `yellow` về `normal`) |
 
 Server có thể nhận `alert` và `report` liền nhau trong cùng một giây.
 
@@ -312,9 +348,9 @@ Invoke-RestMethod -Uri http://localhost:3000/flood -Method Post -ContentType 'ap
 
 Khi chạy với ESP32 thật, dòng `POST report -> 200` trên Serial Monitor cho biết server đã nhận được.
 
-## 5. Dự báo mực nước
+## 5. Dự báo mực nước, lưu lượng và độ ẩm đất
 
-Dashboard dự báo mực nước sau 5 và 10 phút, vẽ thành đường nét đứt nối tiếp biểu đồ. Nếu mực nước dự báo lên mức cao hơn mức hiện tại, dashboard hiện thêm dòng như "Dự báo: có thể lên CẢNH BÁO VÀNG trong khoảng 5 phút nữa (5.8 cm)". Trạm mất kết nối thì dashboard không hiện dự báo.
+Dashboard dự báo **mực nước, lưu lượng và độ ẩm đất** sau 5 và 10 phút. Mực nước dự báo được vẽ thành đường nét đứt nối tiếp biểu đồ; lưu lượng và độ ẩm dự báo hiện ở hai thẻ riêng. Nếu mức tổng hợp tính từ giá trị dự báo (mực nước, hoặc lũ quét ghép từ lưu lượng và độ ẩm, theo mục 3.6) cao hơn mức hiện tại, dashboard hiện thêm dòng như "Dự báo: có thể lên CẢNH BÁO ĐỎ trong khoảng 10 phút nữa (lũ quét: 12.0 L/phút, đất 75%)". Trạm mất kết nối thì dashboard không hiện dự báo.
 
 Mô hình được huấn luyện sẵn và lưu trong `web/model.json`, nên chạy `node server.js` là có dự báo. Các bước dưới đây chỉ cần khi muốn huấn luyện lại.
 
@@ -322,10 +358,11 @@ Mô hình được huấn luyện sẵn và lưu trong `web/model.json`, nên ch
 
 Nhóm chưa có dữ liệu thật, nên script này mô phỏng trạm theo chuỗi mưa → đất ẩm dần → nước chảy qua ống (YF-S201) → bể dâng:
 
-- Mỗi cơn mưa dài 10 đến 60 phút, cường độ đỉnh 5 đến 60 mm/h, hai cơn cách nhau 1 đến 5 giờ.
+- Mỗi cơn mưa dài 10 đến 60 phút, cường độ đỉnh 5 đến 60 mm/h, hai cơn cách nhau 1 đến 5 giờ. Khoảng 1 cơn trong 10 là bão lớn (80 đến 150 mm/h): chỉ cơn như vậy mới đưa lưu lượng qua mốc đỏ 20 L/phút, nên dữ liệu huấn luyện mới có sự kiện lũ quét.
 - Đất càng ướt thì lượng nước chảy tràn càng nhiều. Dòng chảy tới ống chậm khoảng 2 phút so với mưa.
 - Bể nhận nước theo lưu lượng và thoát nước theo mực nước, với hằng số thời gian 15 phút.
-- Số đo có cộng nhiễu như cảm biến thật. Mức cảnh báo dùng cùng ngưỡng và độ trễ với firmware, và có bản tin `alert` mỗi khi đổi mức.
+- Số đo có cộng nhiễu như cảm biến thật. Mức cảnh báo (mực nước, lưu lượng, độ ẩm, lũ quét, tổng hợp) dùng cùng ngưỡng và độ trễ với firmware, và có bản tin `alert` mỗi khi bất kỳ mức nào đổi.
+- Script in thống kê số bản tin ở từng mức để kiểm tra dữ liệu có đủ sự kiện cho mô hình học.
 
 ```powershell
 cd web
@@ -337,11 +374,14 @@ Mỗi bản tin có cùng định dạng với `data.jsonl` mà server ghi, các
 
 ### 5.2. Mô hình (`forecast.js`)
 
-Mô hình là hồi quy tuyến tính, dự báo độ thay đổi của mực nước sau 5 và 10 phút. Đầu vào là 8 đặc trưng lấy từ 5 phút gần nhất:
+Mô hình là hồi quy tuyến tính, dự báo độ thay đổi của **mực nước, lưu lượng và độ ẩm đất** sau 5 và 10 phút (3 đại lượng × 2 mốc = 6 đầu ra). Đầu vào là 10 đặc trưng lấy từ 5 phút gần nhất:
 
 - mực nước, lưu lượng và độ ẩm đất hiện tại;
 - mực nước đã dâng bao nhiêu trong 30 giây, 1, 2 và 5 phút qua;
-- lưu lượng đã thay đổi bao nhiêu trong 1 phút qua.
+- lưu lượng đã thay đổi bao nhiêu trong 1 và 5 phút qua;
+- độ ẩm đất đã thay đổi bao nhiêu trong 5 phút qua.
+
+Kết quả dự báo được giới hạn trong khoảng hợp lý: mực nước từ 0 tới `h_tram_cm`, lưu lượng không âm, độ ẩm từ 0 tới 100%. `model.json` ghi cả danh sách đại lượng; file cũ chỉ dự báo mực nước sẽ bị server bỏ qua và `train.js --finetune` từ chối, cần pre-train lại.
 
 Mô hình học bằng gradient descent để có thể huấn luyện tiếp (fine-tune) trên dữ liệu mới từ chính các trọng số cũ. `train.js` (huấn luyện) và `server.js` (dự báo) dùng chung file này, nên đặc trưng lúc huấn luyện và lúc dự báo luôn khớp nhau.
 
@@ -352,24 +392,29 @@ node train.js                          # pre-train từ đầu trên synthetic.j
 node train.js --finetune data.jsonl    # fine-tune model.json trên dữ liệu trạm thật
 ```
 
-Script chia dữ liệu theo thời gian: 80% đầu để huấn luyện và 20% cuối để kiểm tra. Sai số được so với cách đoán đơn giản nhất là giữ nguyên mực nước hiện tại. Nếu mô hình không tốt hơn cách đó thì script không ghi đè `model.json`. Huấn luyện xong phải khởi động lại `server.js` để nạp model mới.
+Script chia dữ liệu theo thời gian: 80% đầu để huấn luyện và 20% cuối để kiểm tra. Sai số của từng đại lượng ở từng mốc được so với cách đoán đơn giản nhất là giữ nguyên giá trị hiện tại. Nếu có đầu ra nào không tốt hơn cách đó thì script không ghi đè `model.json` và nói rõ đầu ra nào. Huấn luyện xong phải khởi động lại `server.js` để nạp model mới.
 
-`model.json` hiện tại được huấn luyện 1500 vòng trên 30 ngày giả lập (khoảng 518.000 mẫu, 43 lần lên mức ĐỎ), mất khoảng 45 giây. Sai số kiểm tra hết giảm sau khoảng 1500 vòng, nên huấn luyện thêm cũng không tốt hơn.
+`model.json` hiện tại được huấn luyện 1500 vòng trên 30 ngày giả lập (khoảng 518.000 mẫu, seed 1), mất khoảng 5 phút.
 
-Sai số tuyệt đối trung bình khi thử trên 7 ngày giả lập mà mô hình chưa từng thấy (seed 99):
+Sai số tuyệt đối trung bình khi thử trên 7 ngày giả lập mà mô hình chưa từng thấy (seed 99). "Đang tăng" là những thời điểm mà 10 phút sau giá trị cao hơn ít nhất 1 cm (mực nước), 2 L/phút (lưu lượng) hoặc 5% (độ ẩm), tức lúc dự báo có ích nhất:
 
-| Dự báo | Mô hình, mọi lúc | Giữ nguyên, mọi lúc | Mô hình, lúc nước đang lên | Giữ nguyên, lúc nước đang lên |
+| Đại lượng, mốc | Mô hình, mọi lúc | Giữ nguyên, mọi lúc | Mô hình, đang tăng | Giữ nguyên, đang tăng |
 |---|---|---|---|---|
-| +5 phút | 0.14 cm | 0.33 cm | 0.22 cm | 1.39 cm |
-| +10 phút | 0.23 cm | 0.51 cm | 0.94 cm | 2.78 cm |
+| Mực nước +5 phút | 0.15 cm | 0.39 cm | 0.29 cm | 1.70 cm |
+| Mực nước +10 phút | 0.29 cm | 0.64 cm | 1.26 cm | 3.40 cm |
+| Lưu lượng +5 phút | 0.25 L/phút | 0.35 L/phút | 1.42 L/phút | 2.67 L/phút |
+| Lưu lượng +10 phút | 0.56 L/phút | 0.63 L/phút | 4.46 L/phút | 5.48 L/phút |
+| Độ ẩm đất +5 phút | 1.06 % | 1.32 % | 3.23 % | 6.47 % |
+| Độ ẩm đất +10 phút | 1.86 % | 2.39 % | 7.87 % | 12.93 % |
 
-"Lúc nước đang lên" là những thời điểm mà 10 phút sau nước cao hơn ít nhất 1 cm. Đây là lúc dự báo có ích nhất, và cũng là lúc cách đoán giữ nguyên mực nước sai nhiều nhất.
+Lưu lượng là đại lượng dự báo kém nhất: mô hình chỉ hơn cách giữ nguyên một chút ở mốc +10 phút, và khi lưu lượng đang tăng nhanh thì sai số trung bình vẫn tới 4.5 L/phút. Lý do là trạm chưa đo mưa nên mô hình không biết trước nước sắp đổ về (xem mục 5.4).
 
-Để thử fine-tune, nhóm mô phỏng một trạm khác có bể thoát nước nhanh hơn và nước vào nhiều hơn. Sau fine-tune, sai số +5 phút giảm từ 0.24 cm xuống 0.18 cm và sai số +10 phút giảm từ 0.37 cm xuống 0.32 cm.
+Lệnh `--finetune` đã chạy thử trên model mới và hoạt động, nhưng chưa đo được lợi ích của nó: thử trên dữ liệu giả lập cùng bộ sinh thì sai số gần như không đổi, như dự kiến. Lợi ích thật chỉ kiểm chứng được trên dữ liệu `data.jsonl` của trạm thật.
 
 ### 5.4. Giới hạn
 
 - Mô hình chỉ học được những gì có trong dữ liệu. Dữ liệu giả lập đi theo giả định vật lý của `generate-data.js`, nên dự báo cho trạm thật chỉ đáng tin sau khi đã fine-tune trên `data.jsonl` của trạm.
-- Fine-tune cần ít nhất 100 mẫu, tức khoảng 25 phút dữ liệu liên tục. Muốn mô hình học được lúc nước dâng thì trong dữ liệu phải có những lần nước dâng thật, ví dụ đổ nước vào bể với nhiều tốc độ khác nhau.
+- Fine-tune cần ít nhất 100 mẫu, tức khoảng 25 phút dữ liệu liên tục (5 phút nhìn lại, 10 phút nhìn tới để có đáp án, và 100 mẫu cách nhau 5 giây). Muốn mô hình học được lúc nước dâng thì trong dữ liệu phải có những lần nước dâng thật, ví dụ đổ nước vào bể với nhiều tốc độ khác nhau, và cũng cần những lần lưu lượng và độ ẩm đất thay đổi thật.
+- Mốc cảnh báo lưu lượng (10/20 L/phút) và độ ẩm (70/90%) là phỏng đoán, chưa hiệu chuẩn; dữ liệu giả lập chỉ có đủ sự kiện lũ quét vì bộ sinh được chỉnh cho có bão lớn.
 - Trạm chưa đo mưa. Thêm cảm biến mưa hoặc lấy lượng mưa từ API thời tiết sẽ cho mô hình biết trước nước sắp dâng.
 - Mô hình tuyến tính đủ cho một bể nước đơn giản. Nếu sai số trên dữ liệu thật vẫn lớn thì có thể thử mạng nơ-ron nhỏ (MLP) hoặc LightGBM với cùng bộ đặc trưng.

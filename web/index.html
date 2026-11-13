@@ -12,6 +12,10 @@
   main { max-width: 1000px; margin: 0 auto; padding: 16px; }
   header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
   h1 { font-size: 22px; margin: 8px 0; }
+  .title { display:flex; align-items:center; flex-wrap:wrap; gap:8px 14px; }
+  select { font: inherit; font-size: 14px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); }
+  tbody tr[data-date] { cursor: pointer; }
+  tbody tr.sel { background: #eaf1ff; }
   .status { font-size: 14px; color: var(--muted); }
   .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; background:var(--muted); }
   .banner { border-radius: 10px; padding: 16px; color:#fff; font-size: 20px; font-weight: 600; margin: 12px 0; background: var(--muted); }
@@ -28,41 +32,59 @@
   th { color: var(--muted); font-weight: 500; }
   .tag { padding: 2px 8px; border-radius: 10px; color: #fff; font-size: 12px; }
   .forecast { margin: -4px 0 12px; font-weight: 600; border-left: 6px solid var(--muted); }
+  .card.lv-yellow { border-left: 6px solid var(--yellow); }
+  .card.lv-red { border-left: 6px solid var(--red); }
+  .card .sub { font-size: 12px; color: var(--muted); margin-top: 2px; min-height: 1em; }
+  .card.lv-yellow .sub { color: var(--yellow); font-weight: 600; }
+  .card.lv-red .sub { color: var(--red); font-weight: 600; }
 </style>
 </head>
 <body>
 <main>
   <header>
-    <h1>Trạm đo lũ</h1>
+    <div class="title">
+      <h1>Trạm đo lũ</h1>
+      <select id="daySel" aria-label="Chọn ngày xem"><option value="">Hôm nay (trực tiếp)</option></select>
+    </div>
     <div class="status"><span class="dot" id="dot"></span><span id="conn">Đang tải...</span></div>
   </header>
 
+  <h2 id="h2Now">1. Dữ liệu bây giờ</h2>
   <div class="banner" id="banner">Chưa có dữ liệu</div>
-  <div class="card forecast" id="fcWarn" hidden></div>
-
   <div class="grid">
     <div class="card"><div class="label">Mực nước</div><div class="value"><span id="h">--</span> <span class="unit">cm</span></div></div>
-    <div class="card"><div class="label">Lưu lượng</div><div class="value"><span id="q">--</span> <span class="unit">L/phút</span></div></div>
-    <div class="card"><div class="label">Tổng lưu lượng</div><div class="value"><span id="tot">--</span> <span class="unit">L</span></div></div>
-    <div class="card"><div class="label">Độ ẩm đất</div><div class="value"><span id="w">--</span> <span class="unit">%</span></div></div>
-    <div class="card"><div class="label">Dự báo mực nước</div><div class="value" id="fc" style="font-size:18px">--</div></div>
+    <div class="card" id="cardQ"><div class="label">Lưu lượng</div><div class="value"><span id="q">--</span> <span class="unit">L/phút</span></div><div class="sub" id="qSub"></div></div>
+    <div class="card"><div class="label">Tổng lưu lượng</div><div class="value"><span id="tot">--</span> <span class="unit">L</span></div><div class="sub">từ lúc trạm bật nguồn</div></div>
+    <div class="card" id="cardW"><div class="label">Độ ẩm đất</div><div class="value"><span id="w">--</span> <span class="unit">%</span></div><div class="sub" id="wSub"></div></div>
   </div>
 
-  <h2>Mực nước theo thời gian</h2>
+  <section id="secFc">
+    <h2>2. Dự báo số liệu</h2>
+    <div class="card forecast" id="fcWarn" hidden></div>
+    <div class="grid">
+      <div class="card"><div class="label">Dự báo mực nước</div><div class="value" id="fc" style="font-size:18px">--</div></div>
+      <div class="card"><div class="label">Dự báo lưu lượng</div><div class="value" id="fcQ" style="font-size:18px">--</div></div>
+      <div class="card"><div class="label">Dự báo độ ẩm đất</div><div class="value" id="fcW" style="font-size:18px">--</div></div>
+    </div>
+  </section>
+
+  <h2 id="h2Chart">3. Mực nước theo thời gian</h2>
   <div class="card"><svg id="chart" viewBox="0 0 1000 240" preserveAspectRatio="none"></svg></div>
 
-  <h2>Bản tin gần đây</h2>
+  <h2>4. Bản tin trong 1 tuần qua</h2>
   <div class="card table-wrap">
     <table>
-      <thead><tr><th>Thời gian</th><th>Loại</th><th>Mức</th><th>H (cm)</th><th>Q (L/phút)</th><th>Tổng (L)</th><th>Độ ẩm (%)</th></tr></thead>
-      <tbody id="rows"></tbody>
+      <thead><tr><th>Ngày</th><th>Độ ẩm TB (%)</th><th>Mực nước TB (cm)</th><th>Lưu lượng TB (L/phút)</th><th>Tổng lưu lượng (L)</th></tr></thead>
+      <tbody id="days"></tbody>
     </table>
   </div>
 </main>
 
 <script>
-// Phải khớp YELLOW_CM / RED_CM trong config.h của ESP32
+// Phải khớp các mốc trong config.h của ESP32 (dùng để tô màu và xét cảnh báo sớm theo giá trị dự báo)
 const YELLOW_CM = 4.0, RED_CM = 8.0;
+const FLOW_YELLOW_LPM = 10.0, FLOW_RED_LPM = 20.0;
+const SOIL_YELLOW_PCT = 70.0, SOIL_RED_PCT = 90.0;
 const OFFLINE_MS = 20 * 1000;       // ESP32 báo cáo 5 giây/lần, quá 20 giây (lỡ 3-4 bản tin) coi là mất kết nối
 const LEVEL = {
   normal: { text: 'BÌNH THƯỜNG', color: 'var(--normal)' },
@@ -72,47 +94,154 @@ const LEVEL = {
 const $ = id => document.getElementById(id);
 const fmtTime = iso => new Date(iso).toLocaleString('vi-VN');
 const RANK = ['normal', 'yellow', 'red'];
-const levelOf = h => h >= RED_CM ? 'red' : h >= YELLOW_CM ? 'yellow' : 'normal';
+const lvOf = (v, y, r) => v >= r ? 'red' : v >= y ? 'yellow' : 'normal';
+const levelOf = h => lvOf(h, YELLOW_CM, RED_CM);
+const flowLevelOf = q => lvOf(q, FLOW_YELLOW_LPM, FLOW_RED_LPM);
+const soilLevelOf = w => lvOf(w, SOIL_YELLOW_PCT, SOIL_RED_PCT);
+const maxLv = (a, b) => RANK.indexOf(a) >= RANK.indexOf(b) ? a : b;
+// Giống flashFloodLevel() trong firmware/alert.cpp
+const flashOf = (flow, soil) =>
+  RANK.indexOf(flow) >= 1 && RANK.indexOf(soil) >= 1 ? 'red' : (flow === 'red' || soil === 'red') ? 'yellow' : 'normal';
+// Bản tin cũ (trước khi có cảnh báo Q/W) không có các trường mức: tự suy ra từ số đo
+const recLevels = d => {
+  const flow = d.flow_level || flowLevelOf(d.flow_lpm);
+  const soil = d.soil_level || soilLevelOf(d.soil_pct);
+  return { water: d.water_level || levelOf(d.h_nuoc_cm), flow, soil, flash: d.flash_level || flashOf(flow, soil) };
+};
 
-function render(data, fc) {
-  const last = data[data.length - 1];
-  if (!last) return;
+// Tô viền thẻ theo mức và ghi chú ngưỡng bên dưới số đo
+function setCardLevel(cardId, subId, level, note) {
+  $(cardId).className = 'card' + (level === 'normal' ? '' : ' lv-' + level);
+  $(subId).textContent = level === 'normal' ? '' : LEVEL[level].text + ' (' + note + ')';
+}
 
-  const age = Date.now() - new Date(last.received_at);
-  const online = age < OFFLINE_MS;
+function fmtFc(arr, unit, horizons) {
+  return arr ? horizons.map((m, k) => `+${m} phút: ${arr[k].toFixed(1)} ${unit}`).join(' · ') : 'chưa đủ dữ liệu';
+}
+
+// Ngày đang xem: null = hôm nay (trực tiếp, có dự báo); 'YYYY-MM-DD' = xem lại một ngày trong quá khứ (không có dự báo)
+let selDate = null;
+let todayKey = '';
+let dayOptionsKey = '';
+
+const fmtDay = s => {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+const isOnline = rec => Date.now() - new Date(rec.received_at) < OFFLINE_MS;
+
+// Trạng thái kết nối luôn theo bản tin mới nhất của trạm, kể cả khi đang xem lại ngày cũ
+function renderStatus(live) {
+  if (!live) { $('conn').textContent = 'Đang chờ bản tin đầu tiên từ ESP32...'; return; }
+  const online = isOnline(live);
   $('dot').style.background = online ? 'var(--normal)' : 'var(--red)';
-  $('conn').textContent = (online ? 'Trạm đang hoạt động' : 'Mất kết nối với trạm') + ' · cập nhật ' + fmtTime(last.received_at);
+  $('conn').textContent = (online ? 'Trạm đang hoạt động' : 'Mất kết nối với trạm') + ' · cập nhật ' + fmtTime(live.received_at);
+}
 
-  const lv = LEVEL[last.level];
-  $('banner').textContent = lv.text + (online ? '' : ' (dữ liệu cũ)');
+// Banner và 4 thẻ của phần 1. rec = null: ngày không có dữ liệu. stale: bản tin đã cũ (trạm mất kết nối)
+function showRecord(rec, stale) {
+  if (!rec) {
+    $('banner').textContent = 'Không có dữ liệu ngày này';
+    $('banner').style.background = 'var(--muted)';
+    ['h', 'q', 'tot', 'w'].forEach(id => { $(id).textContent = '--'; });
+    setCardLevel('cardQ', 'qSub', 'normal', '');
+    setCardLevel('cardW', 'wSub', 'normal', '');
+    return;
+  }
+  const lv = LEVEL[rec.level];
+  const L = recLevels(rec);
+  const causes = [];
+  if (L.water !== 'normal') causes.push('mực nước');
+  if (L.flash !== 'normal') causes.push('lũ quét');
+  $('banner').textContent = lv.text + (causes.length && rec.level !== 'normal' ? ' · ' + causes.join(', ') : '') +
+    (stale ? ' (dữ liệu cũ)' : '');
   $('banner').style.background = lv.color;
 
-  $('h').textContent = last.h_nuoc_cm.toFixed(1);
-  $('q').textContent = last.flow_lpm.toFixed(2);
-  $('tot').textContent = last.total_l.toFixed(3);
-  $('w').textContent = last.soil_pct.toFixed(1);
+  $('h').textContent = rec.h_nuoc_cm.toFixed(1);
+  $('q').textContent = rec.flow_lpm.toFixed(2);
+  $('tot').textContent = rec.total_l.toFixed(3);
+  $('w').textContent = rec.soil_pct.toFixed(1);
+  setCardLevel('cardQ', 'qSub', L.flow, L.flow === 'red' ? '≥ ' + FLOW_RED_LPM + ' L/phút' : '≥ ' + FLOW_YELLOW_LPM + ' L/phút');
+  setCardLevel('cardW', 'wSub', L.soil, L.soil === 'red' ? '≥ ' + SOIL_RED_PCT + '%' : '≥ ' + SOIL_YELLOW_PCT + '%');
+}
 
-  // Dự báo: cảnh báo sớm nếu mực nước dự báo lên mức cao hơn mức hiện tại
-  const hasFc = online && fc && fc.h_cm;
-  $('fc').textContent = hasFc
-    ? fc.horizons_min.map((m, k) => `+${m} phút: ${fc.h_cm[k].toFixed(1)} cm`).join(' · ')
-    : 'chưa đủ dữ liệu';
-  const k = hasFc ? fc.h_cm.findIndex(h => RANK.indexOf(levelOf(h)) > RANK.indexOf(last.level)) : -1;
+// Xem lại một ngày trong quá khứ: bản tin cuối ngày và biểu đồ mực nước của ngày đó; ẩn hẳn phần dự báo
+function renderPast(day) {
+  $('h2Now').textContent = '1. Dữ liệu cuối ngày ' + fmtDay(selDate);
+  $('h2Chart').textContent = '3. Mực nước ngày ' + fmtDay(selDate);
+  $('secFc').hidden = true;
+  showRecord(day.last, false);
+  if (day.points.length) drawChart(day.points, null);
+  else $('chart').innerHTML = '<text x="500" y="120" text-anchor="middle" font-size="14" fill="#888">Không có dữ liệu ngày này</text>';
+}
+
+function renderLive(data, fc) {
+  const last = data[data.length - 1];
+  const online = isOnline(last);
+  $('h2Now').textContent = '1. Dữ liệu bây giờ';
+  $('h2Chart').textContent = '3. Mực nước theo thời gian';
+  $('secFc').hidden = false;
+  showRecord(last, !online);
+
+  // Dự báo: cảnh báo sớm nếu mực nước, lưu lượng, độ ẩm hoặc lũ quét dự báo lên mức cao hơn mức hiện tại
+  const hasFc = online && fc && fc.h_cm && fc.flow_lpm && fc.soil_pct;
+  const hz = fc ? fc.horizons_min : [];
+  $('fc').textContent = hasFc ? fmtFc(fc.h_cm, 'cm', hz) : 'chưa đủ dữ liệu';
+  $('fcQ').textContent = hasFc ? fmtFc(fc.flow_lpm, 'L/phút', hz) : 'chưa đủ dữ liệu';
+  $('fcW').textContent = hasFc ? fmtFc(fc.soil_pct, '%', hz) : 'chưa đủ dữ liệu';
+
+  let k = -1, fcLevel = 'normal', fcWhy = '';
+  if (hasFc) {
+    for (let i = 0; i < hz.length && k < 0; i++) {
+      const w = levelOf(fc.h_cm[i]), fl = flowLevelOf(fc.flow_lpm[i]), so = soilLevelOf(fc.soil_pct[i]);
+      const flash = flashOf(fl, so);
+      const lvl = maxLv(w, flash);
+      if (RANK.indexOf(lvl) <= RANK.indexOf(last.level)) continue;
+      k = i; fcLevel = lvl;
+      fcWhy = RANK.indexOf(flash) >= RANK.indexOf(w) && flash !== 'normal'
+        ? `lũ quét: ${fc.flow_lpm[i].toFixed(1)} L/phút, đất ${fc.soil_pct[i].toFixed(0)}%`
+        : `${fc.h_cm[i].toFixed(1)} cm`;
+    }
+  }
   $('fcWarn').hidden = k < 0;
   if (k >= 0) {
-    const lvf = LEVEL[levelOf(fc.h_cm[k])];
-    $('fcWarn').textContent = `Dự báo: có thể lên ${lvf.text} trong khoảng ${fc.horizons_min[k]} phút nữa (${fc.h_cm[k].toFixed(1)} cm)`;
+    const lvf = LEVEL[fcLevel];
+    $('fcWarn').textContent = `Dự báo: có thể lên ${lvf.text} trong khoảng ${hz[k]} phút nữa (${fcWhy})`;
     $('fcWarn').style.borderLeftColor = lvf.color;
   }
 
   drawChart(data, hasFc ? fc : null);
-
-  $('rows').innerHTML = data.slice(-30).reverse().map(d => `
-    <tr><td>${fmtTime(d.received_at)}</td><td>${d.event === 'alert' ? 'Cảnh báo' : 'Định kỳ'}</td>
-    <td><span class="tag" style="background:${LEVEL[d.level].color}">${LEVEL[d.level].text}</span></td>
-    <td>${d.h_nuoc_cm.toFixed(1)}</td><td>${d.flow_lpm.toFixed(2)}</td>
-    <td>${d.total_l.toFixed(3)}</td><td>${d.soil_pct.toFixed(1)}</td></tr>`).join('');
 }
+
+// Bảng 1 tuần qua: mỗi ngày một dòng, ngày mới nhất ở trên. days = kết quả của /api/daily (cũ nhất trước)
+function renderDaily(days) {
+  const num = (v, digits) => v === null ? '-' : v.toFixed(digits);
+  const shown = selDate || todayKey;   // dòng của ngày đang xem được tô đậm
+  $('days').innerHTML = days.slice().reverse().map(d => `
+    <tr data-date="${d.date}" class="${d.date === shown ? 'sel' : ''}"${d.n ? '' : ' style="color:var(--muted)"'}>
+    <td>${fmtDay(d.date)}${d.n ? '' : ' (chưa có dữ liệu)'}</td>
+    <td>${num(d.soil_pct, 1)}</td><td>${num(d.h_nuoc_cm, 1)}</td><td>${num(d.flow_lpm, 2)}</td><td>${num(d.total_l, 1)}</td></tr>`).join('');
+}
+
+// Ô chọn ngày cạnh tiêu đề: "Hôm nay" + các ngày trước đó trong tuần (mới nhất trước). Chỉ dựng lại khi danh sách ngày đổi.
+function buildDayOptions(days) {
+  todayKey = days[days.length - 1].date;
+  const key = days.map(d => d.date).join();
+  if (key !== dayOptionsKey) {
+    dayOptionsKey = key;
+    $('daySel').innerHTML = `<option value="">Hôm nay (trực tiếp)</option>` +
+      days.slice(0, -1).reverse().map(d => `<option value="${d.date}">${fmtDay(d.date)}</option>`).join('');
+  }
+  if (selDate && !days.some(d => d.date === selDate)) selDate = null;   // ngày đã trôi ra khỏi tuần
+  $('daySel').value = selDate || '';
+}
+
+function chooseDay(date) {
+  selDate = date && date !== todayKey ? date : null;
+  refresh();
+}
+$('daySel').onchange = e => chooseDay(e.target.value);
+$('days').onclick = e => { const tr = e.target.closest('tr'); if (tr && tr.dataset.date) chooseDay(tr.dataset.date); };
 
 function drawChart(data, fc) {
   const W = 1000, H = 240, pad = 30;
@@ -143,12 +272,20 @@ function drawChart(data, fc) {
 
 async function refresh() {
   try {
-    const [data, fc] = await Promise.all([
+    const wanted = selDate;
+    const [data, fc, days, day] = await Promise.all([
       fetch('/api/history?limit=300').then(r => r.json()),
       fetch('/api/forecast').then(r => r.json()),
+      fetch('/api/daily?days=7').then(r => r.json()),
+      wanted ? fetch('/api/day?date=' + wanted).then(r => r.json()) : null,
     ]);
-    if (data.length) render(data, fc);
-    else $('conn').textContent = 'Đang chờ bản tin đầu tiên từ ESP32...';
+    if (selDate !== wanted) return;   // người dùng vừa đổi ngày, lần refresh mới hơn sẽ vẽ
+    buildDayOptions(days);
+    renderDaily(days);
+    renderStatus(data[data.length - 1]);
+    if (selDate && selDate === wanted) renderPast(day);
+    else if (data.length) renderLive(data, fc);
+    else showRecord(null, false);
   } catch {
     $('conn').textContent = 'Không kết nối được tới server';
   }

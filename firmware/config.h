@@ -38,6 +38,19 @@ const float FLOW_K = 7.5;       // số xung/giây ứng với 1 L/phút
 const int ADC_KHO = 3500;       // ADC khi đất khô hoàn toàn (để ngoài không khí)
 const int ADC_UOT = 1400;       // ADC khi đất ướt hoàn toàn (nhúng nước)
 
+// ---------------------- CẢNH BÁO LƯU LƯỢNG / ĐỘ ẨM ĐẤT / LŨ QUÉT ----------------------
+// Mốc là giá trị đề xuất ban đầu: hãy hiệu chuẩn theo lưu lượng bình thường tại chỗ đặt trạm.
+// Cảnh báo lưu lượng dùng trung bình động FLOW_MA_N mẫu (1 mẫu/giây) cho đỡ nhảy.
+//   Lũ quét ĐỎ   : lưu lượng >= vàng VÀ độ ẩm >= vàng cùng lúc
+//   Lũ quét VÀNG : chỉ một trong hai đạt mức đỏ (nước chảy rất mạnh, hoặc đất bão hòa)
+const int   FLOW_MA_N        = 5;      // cửa sổ trung bình động của lưu lượng (số mẫu)
+const float FLOW_YELLOW_LPM  = 10.0;   // Q >= 10 L/phút -> lưu lượng VÀNG
+const float FLOW_RED_LPM     = 20.0;   // Q >= 20 L/phút -> lưu lượng ĐỎ
+const float FLOW_HYST_LPM    = 1.0;    // trễ khi hạ mức lưu lượng
+const float SOIL_YELLOW_PCT  = 70.0;   // W >= 70 % -> đất ngấm nước (VÀNG)
+const float SOIL_RED_PCT     = 90.0;   // W >= 90 % -> đất bão hòa (ĐỎ)
+const float SOIL_HYST_PCT    = 3.0;    // trễ khi hạ mức độ ẩm
+
 // ---------------------- CHU KỲ ----------------------
 const unsigned long INTERVAL_MS        = 1000;                  // chu kỳ đo / in Serial
 const unsigned long REPORT_INTERVAL_MS = 5UL * 1000UL;          // báo cáo định kỳ lên server: 5 giây

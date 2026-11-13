@@ -1,11 +1,13 @@
-// Dự báo mực nước sau 5 và 10 phút. Dùng chung cho train.js (huấn luyện) và server.js (dự báo).
-// Mô hình: hồi quy tuyến tính dự báo độ thay đổi mực nước, huấn luyện bằng gradient descent
+// Dự báo mực nước, lưu lượng và độ ẩm đất sau 5 và 10 phút. Dùng chung cho train.js (huấn luyện) và server.js (dự báo).
+// Mô hình: hồi quy tuyến tính dự báo độ thay đổi của từng đại lượng, huấn luyện bằng gradient descent
 // để fine-tune tiếp được trên dữ liệu thật mà không phải train lại từ đầu.
 // shortcut: mô hình tuyến tính, đủ cho bể nước đơn giản; nếu sai số trên dữ liệu thật vẫn lớn thì đổi sang MLP/LightGBM.
 
+const TARGETS = ['h_nuoc_cm', 'flow_lpm', 'soil_pct'];   // đại lượng được dự báo; 3 đặc trưng đầu của features() cũng theo đúng thứ tự này
 const LAGS_S = [30, 60, 120, 300];   // nhìn lại 5 phút gần nhất
 const HORIZONS_S = [300, 600];       // dự báo +5 phút và +10 phút
 const TOL_MS = 15000;                // bản tin cách mốc cần tìm quá 15 s coi như thiếu dữ liệu
+const NH = HORIZONS_S.length;        // đầu ra thứ k = đại lượng floor(k / NH), mốc thời gian k % NH
 
 // Chỉ số bản tin gần thời điểm t nhất (times tăng dần), -1 nếu không có bản tin nào đủ gần
 function nearest(times, t) {
@@ -18,28 +20,37 @@ function nearest(times, t) {
   return Math.abs(times[lo] - t) <= TOL_MS ? lo : -1;
 }
 
-// Đặc trưng tại bản tin i: mực nước, lưu lượng, độ ẩm, tốc độ dâng trong các khoảng LAGS_S, thay đổi lưu lượng 1 phút
+// Đặc trưng tại bản tin i: mực nước, lưu lượng, độ ẩm; tốc độ dâng trong các khoảng LAGS_S;
+// thay đổi lưu lượng trong 1 và 5 phút; thay đổi độ ẩm trong 5 phút
 function features(recs, times, i) {
   const r = recs[i];
   const f = [r.h_nuoc_cm, r.flow_lpm, r.soil_pct];
-  let j60 = -1;
+  let j60 = -1, j300 = -1;
   for (const lag of LAGS_S) {
     const j = nearest(times, times[i] - lag * 1000);
     if (j < 0) return null;
     if (lag === 60) j60 = j;
+    if (lag === 300) j300 = j;
     f.push(r.h_nuoc_cm - recs[j].h_nuoc_cm);
   }
   f.push(r.flow_lpm - recs[j60].flow_lpm);
+  f.push(r.flow_lpm - recs[j300].flow_lpm);
+  f.push(r.soil_pct - recs[j300].soil_pct);
   return f;
 }
 
-// Trả về mảng mực nước dự báo (cm) cho từng HORIZONS_S
+// Trả về { h_nuoc_cm: [...], flow_lpm: [...], soil_pct: [...] }, mỗi mảng theo từng HORIZONS_S
 function predict(model, f, hTram) {
-  return model.w.map((w, k) => {
+  const hi = [hTram, Infinity, 100];   // cận trên vật lý của từng đại lượng (cận dưới đều là 0)
+  const out = {};
+  TARGETS.forEach(t => { out[t] = []; });
+  model.w.forEach((w, k) => {
+    const t = Math.floor(k / NH);
     let delta = model.b[k];
     for (let d = 0; d < f.length; d++) delta += w[d] * (f[d] - model.mean[d]) / model.std[d];
-    return Math.min(Math.max(f[0] + delta, 0), hTram);
+    out[TARGETS[t]].push(Math.min(Math.max(f[t] + delta, 0), hi[t]));
   });
+  return out;
 }
 
 // Dự báo từ lịch sử bản tin (đã sắp theo thời gian); null nếu thiếu dữ liệu 5 phút gần nhất
@@ -50,7 +61,13 @@ function forecastLatest(model, recs) {
   return f && predict(model, f, recs[recs.length - 1].h_tram_cm);
 }
 
-// Bộ dữ liệu (X, Y) từ chuỗi bản tin. Y[k] = mực nước sau HORIZONS_S[k] trừ mực nước hiện tại.
+// Mô hình lưu trong model.json có đúng định dạng hiện tại (3 đại lượng × 2 mốc) không
+function isCompatible(model) {
+  return !!model && Array.isArray(model.targets) && model.targets.join() === TARGETS.join()
+    && Array.isArray(model.w) && model.w.length === TARGETS.length * NH;
+}
+
+// Bộ dữ liệu (X, Y) từ chuỗi bản tin. Y[k] = giá trị đại lượng sau mốc thời gian trừ giá trị hiện tại.
 function buildDataset(recs) {
   recs = recs.filter(r => r.event === 'report');   // bản tin alert trùng thời điểm với report, bỏ cho khỏi lặp
   const times = recs.map(r => Date.parse(r.received_at));
@@ -61,7 +78,7 @@ function buildDataset(recs) {
     const js = HORIZONS_S.map(s => nearest(times, times[i] + s * 1000));
     if (js.includes(-1)) continue;
     X.push(f);
-    Y.push(js.map(j => recs[j].h_nuoc_cm - recs[i].h_nuoc_cm));
+    Y.push(TARGETS.flatMap(t => js.map(j => recs[j][t] - recs[i][t])));
     H.push(recs[i].h_tram_cm);
   }
   return { X, Y, H };
@@ -73,9 +90,10 @@ function newModel(X) {
   const mean = Array(d).fill(0), std = Array(d).fill(0);
   for (const x of X) x.forEach((v, j) => mean[j] += v / X.length);
   for (const x of X) x.forEach((v, j) => std[j] += (v - mean[j]) ** 2 / X.length);
+  const outputs = TARGETS.length * NH;
   return {
-    horizons_s: HORIZONS_S, mean, std: std.map(s => Math.sqrt(s) || 1),
-    w: HORIZONS_S.map(() => Array(d).fill(0)), b: HORIZONS_S.map(() => 0),
+    targets: TARGETS, horizons_s: HORIZONS_S, mean, std: std.map(s => Math.sqrt(s) || 1),
+    w: Array.from({ length: outputs }, () => Array(d).fill(0)), b: Array(outputs).fill(0),
   };
 }
 
@@ -99,16 +117,19 @@ function train(model, X, Y, epochs, lr) {
   }
 }
 
-// Sai số tuyệt đối trung bình (cm) của mô hình và của cách "giữ nguyên mực nước hiện tại" (mốc so sánh)
+// Sai số tuyệt đối trung bình của mô hình (mae) và của cách "giữ nguyên giá trị hiện tại" (base, mốc so sánh).
+// Cả hai là mảng độ dài TARGETS.length × NH, đơn vị theo từng đại lượng (cm, L/phút, %).
 function evaluate(model, X, Y, H) {
-  const mae = HORIZONS_S.map(() => 0), base = HORIZONS_S.map(() => 0);
+  const mae = Y[0].map(() => 0), base = Y[0].map(() => 0);
   X.forEach((x, i) => {
-    predict(model, x, H[i]).forEach((p, k) => {
-      mae[k] += Math.abs(p - (x[0] + Y[i][k])) / X.length;
+    const p = predict(model, x, H[i]);
+    TARGETS.forEach((t, ti) => p[t].forEach((v, h) => {
+      const k = ti * NH + h;
+      mae[k] += Math.abs(v - (x[ti] + Y[i][k])) / X.length;
       base[k] += Math.abs(Y[i][k]) / X.length;
-    });
+    }));
   });
   return { mae, base };
 }
 
-module.exports = { HORIZONS_S, forecastLatest, buildDataset, newModel, train, evaluate };
+module.exports = { TARGETS, HORIZONS_S, forecastLatest, isCompatible, buildDataset, newModel, train, evaluate };

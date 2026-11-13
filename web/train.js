@@ -1,4 +1,4 @@
-// Huấn luyện mô hình dự báo mực nước, ghi ra model.json cho server.js dùng.
+// Huấn luyện mô hình dự báo mực nước, lưu lượng, độ ẩm đất; ghi ra model.json cho server.js dùng.
 //   node train.js                        pre-train từ đầu trên synthetic.jsonl
 //   node train.js --finetune data.jsonl  fine-tune model.json hiện có trên dữ liệu trạm thật
 // Chia dữ liệu theo thời gian: 80% đầu để train, 20% cuối để kiểm tra.
@@ -25,17 +25,27 @@ const cut = Math.floor(X.length * 0.8);
 const train = [X.slice(0, cut), Y.slice(0, cut)];
 const test = [X.slice(cut), Y.slice(cut), H.slice(cut)];
 
+const UNIT = { h_nuoc_cm: 'cm', flow_lpm: 'L/phut', soil_pct: '%' };
+const NAME = { h_nuoc_cm: 'muc nuoc', flow_lpm: 'luu luong', soil_pct: 'do am dat' };
+
+// In sai số từng đại lượng × từng mốc so với cách "giữ nguyên giá trị hiện tại"
 const report = (title, model) => {
   const { mae, base } = fc.evaluate(model, ...test);
   console.log(title);
-  fc.HORIZONS_S.forEach((s, k) =>
-    console.log(`  +${s / 60} phut: sai so ${mae[k].toFixed(2)} cm (giu nguyen muc nuoc: ${base[k].toFixed(2)} cm)`));
+  fc.TARGETS.forEach((t, ti) => fc.HORIZONS_S.forEach((s, h) => {
+    const k = ti * fc.HORIZONS_S.length + h;
+    console.log(`  ${NAME[t]} +${s / 60} phut: sai so ${mae[k].toFixed(3)} ${UNIT[t]} (giu nguyen: ${base[k].toFixed(3)} ${UNIT[t]})`);
+  }));
   return { mae, base };
 };
 
 let model;
 if (finetune) {
   model = JSON.parse(fs.readFileSync(MODEL_FILE, 'utf8'));
+  if (!fc.isCompatible(model)) {
+    console.error('model.json la dinh dang cu (chi du bao muc nuoc). Chay "node train.js" de pre-train lai truoc.');
+    process.exit(1);
+  }
   report('Truoc fine-tune:', model);
   fc.train(model, ...train, 100, 0.02);   // ít vòng, bước nhỏ: chỉnh nhẹ, không quên những gì học từ dữ liệu giả lập
 } else {
@@ -45,9 +55,13 @@ if (finetune) {
 const { mae, base } = report(finetune ? 'Sau fine-tune:' : 'Sau pre-train:', model);
 console.log(`${X.length} mau tu ${path.basename(dataFile)}`);
 
-// Tự kiểm tra: mô hình phải đoán tốt hơn việc giả định mực nước đứng yên, nếu không thì không ghi đè model.json
-if (mae.some((m, k) => m >= base[k])) {
-  console.error('Mo hinh khong tot hon cach giu nguyen muc nuoc, KHONG ghi model.json');
+// Tự kiểm tra: mọi đầu ra phải đoán tốt hơn việc giả định giá trị đứng yên, nếu không thì không ghi đè model.json
+const bad = [];
+mae.forEach((m, k) => {
+  if (m >= base[k]) bad.push(`${NAME[fc.TARGETS[Math.floor(k / fc.HORIZONS_S.length)]]} +${fc.HORIZONS_S[k % fc.HORIZONS_S.length] / 60} phut`);
+});
+if (bad.length) {
+  console.error(`Mo hinh khong tot hon cach giu nguyen o: ${bad.join(', ')}. KHONG ghi model.json`);
   process.exit(1);
 }
 fs.writeFileSync(MODEL_FILE, JSON.stringify(model, null, 2));

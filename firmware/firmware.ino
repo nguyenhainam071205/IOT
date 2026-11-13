@@ -3,7 +3,8 @@
 
   - Đo mỗi giây, in 1 dòng ra Serial Monitor (115200 baud)
   - Mực nước: D lọc trung bình động N mẫu, H_nuoc = H_tram - D_loc
-  - Cảnh báo: H_nuoc >= 4 cm -> VÀNG, H_nuoc >= 8 cm -> ĐỎ
+  - Cảnh báo mực nước: H_nuoc >= 4 cm -> VÀNG, H_nuoc >= 8 cm -> ĐỎ
+  - Cảnh báo lưu lượng / độ ẩm đất / lũ quét: mốc trong config.h, logic trong alert.cpp
   - Gửi HTTP POST JSON về web server khi đổi mức cảnh báo và định kỳ 5 giây/lần
 
   Mở file này trong Arduino IDE. Thư mục chứa nó phải tên là "firmware"
@@ -15,6 +16,7 @@
     water_level.*   - HC-SR04, bộ lọc trung bình động, mực nước, mức cảnh báo
     flow.*          - YF-S201, ngắt đếm xung, lưu lượng
     soil.*          - độ ẩm đất
+    alert.*         - mức cảnh báo lưu lượng, độ ẩm đất, lũ quét, mức tổng hợp
     uplink.*        - WiFi + HTTP POST JSON lên server
     display.*       - in Serial
 
@@ -29,6 +31,7 @@
 #include "water_level.h"
 #include "flow.h"
 #include "soil.h"
+#include "alert.h"
 #include "uplink.h"
 #include "display.h"
 
@@ -63,19 +66,23 @@ void loop() {
   flowUpdate(elapsed, m);     // 1) lưu lượng
   waterLevelUpdate(m);        // 2) khoảng cách -> D_loc -> H_nuoc -> mức cảnh báo
   soilUpdate(m);              // 3) độ ẩm đất
-  printStatus(m);             // 4) in Serial
+  alertUpdate(m);             // 4) Q trung bình, mức Q / W / lũ quét, mức tổng hợp
+  printStatus(m);             // 5) in Serial
 
   if (!m.filterReady) return; // chưa đủ N mẫu: chưa cảnh báo, chưa gửi
 
-  // 5) Gửi ngay khi đổi mức cảnh báo (kể cả hạ mức)
-  if (m.level != waterLevelCurrent()) {
-    Serial.printf("Doi muc canh bao: %s -> %s\n",
-                  levelLabel(waterLevelCurrent()), levelLabel(m.level));
-    waterLevelCommit(m.level);
+  // 6) Gửi ngay khi bất kỳ mức nào đổi (mực nước, lưu lượng, độ ẩm, lũ quét; kể cả hạ mức)
+  if (alertChanged(m)) {
+    Serial.printf("Doi muc canh bao: %s -> %s (nuoc=%s, Q=%s, W=%s, lu quet=%s)\n",
+                  levelLabel(alertCommittedOverall()), levelLabel(m.level),
+                  levelLabel(m.waterLevel), levelLabel(m.flowLevel),
+                  levelLabel(m.soilLevel), levelLabel(m.flashLevel));
+    waterLevelCommit(m.waterLevel);
+    alertCommit(m);
     sendToServer("alert", m);
   }
 
-  // 6) Báo cáo định kỳ (lần đầu ngay khi bộ lọc đầy)
+  // 7) Báo cáo định kỳ (lần đầu ngay khi bộ lọc đầy)
   if (!reportedOnce || now - lastReport >= REPORT_INTERVAL_MS) {
     reportedOnce = true;
     lastReport   = now;
