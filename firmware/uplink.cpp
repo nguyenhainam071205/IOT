@@ -4,6 +4,7 @@
 #include "config.h"
 #include "uplink.h"
 #include "water_level.h"   // levelName()
+#include "alarm.h"         // alarmMucNuoc(), alarmMucDoAm(), alarmMucLuuLuong()
 
 static unsigned long lastWifiRetry = 0;
 
@@ -46,22 +47,20 @@ bool sendToServer(const char* event, const Measurement& m) {
 
   String body = String("{\"event\":\"") + event +
                 "\",\"level\":\"" + levelName(m.level) +
-                "\",\"water_level\":\"" + levelName(m.waterLevel) +
-                "\",\"flow_level\":\"" + levelName(m.flowLevel) +
-                "\",\"soil_level\":\"" + levelName(m.soilLevel) +
-                "\",\"flash_level\":\"" + levelName(m.flashLevel) +
+                "\",\"water_level\":\"" + levelName((Level)alarmMucNuoc()) +
+                "\",\"flow_level\":\"" + levelName((Level)alarmMucLuuLuong()) +
+                "\",\"soil_level\":\"" + levelName((Level)alarmMucDoAm()) +
                 "\",\"h_nuoc_cm\":" + String(m.hNuoc, 1) +
                 ",\"d_loc_cm\":" + String(m.dLoc, 1) +
                 ",\"h_tram_cm\":" + String(H_TRAM_CM, 1) +
                 ",\"flow_lpm\":" + String(m.flowRate, 2) +
-                ",\"flow_avg_lpm\":" + String(m.flowAvg, 2) +
                 ",\"total_l\":" + String(m.totalLitres, 3) +
                 ",\"soil_pct\":" + String(m.soilPercent, 1) + "}";
 
   HTTPClient http;
   http.begin(SERVER_URL);
   http.addHeader("Content-Type", "application/json");
-  http.setTimeout(5000);
+  http.setTimeout(1500);
   int code = http.POST(body);
   http.end();
 

@@ -19,7 +19,6 @@
     water_level.*   - HC-SR04, bộ lọc trung bình động, mực nước, mức cảnh báo
     flow.*          - YF-S201, ngắt đếm xung, lưu lượng
     soil.*          - độ ẩm đất
-    alert.*         - mức cảnh báo lưu lượng, độ ẩm đất, lũ quét, mức tổng hợp
     uplink.*        - WiFi + HTTP POST JSON lên server
     display.*       - in Serial + hiển thị LCD 1602 I2C
     alarm.*         - cảnh báo 3 cảm biến + đèn LED + còi báo động
@@ -38,7 +37,6 @@
 #include "water_level.h"
 #include "flow.h"
 #include "soil.h"
-#include "alert.h"
 #include "uplink.h"
 #include "display.h"
 #include "alarm.h"
@@ -75,29 +73,26 @@ void loop() {
 
   Measurement m;
   flowUpdate(elapsed, m);     // 1) lưu lượng
-  waterLevelUpdate(m);        // 2) khoảng cách -> D_loc -> H_nuoc -> mức cảnh báo
+  waterLevelUpdate(m);        // 2) khoảng cách -> D_loc -> H_nuoc -> mức cảnh báo nước
   soilUpdate(m);              // 3) độ ẩm đất
-  alertUpdate(m);             // mức lưu lượng, độ ẩm, lũ quét, mức tổng hợp
-  alarmEvaluate(m);           // SỬA: thêm dòng này, tính mức cảnh báo của 3 cảm biến
-  printStatus(m);             // 4) in Serial + cập nhật LCD
+  alarmEvaluate(m);           // 4) tính mức cảnh báo của cả 3 cảm biến + kích đèn/còi
+  m.level = (Level)alarmMucTong(); // gộp mức cảnh báo chung (cao nhất trong 3 cảm biến)
+  printStatus(m);             // 5) in Serial + cập nhật LCD
 
-  if (!m.filterReady) return; // chưa đủ N mẫu: chưa cảnh báo, chưa gửi
+  if (!m.filterReady && alarmMucTong() == 0) return; // chưa đủ N mẫu và chưa có cảnh báo: chưa gửi
 
-  // 6) Gửi ngay khi bất kỳ mức nào đổi (mực nước, lưu lượng, độ ẩm, lũ quét; kể cả hạ mức)
-  if (alertChanged(m)) {
-    Serial.printf("Doi muc canh bao: %s -> %s (nuoc=%s, Q=%s, W=%s, lu quet=%s)\n",
-                  levelLabel(alertCommittedOverall()), levelLabel(m.level),
-                  levelLabel(m.waterLevel), levelLabel(m.flowLevel),
-                  levelLabel(m.soilLevel), levelLabel(m.flashLevel));
-    waterLevelCommit(m.waterLevel);
-    alertCommit(m);
+  // 6) Gửi ngay khi đổi mức cảnh báo chung (mực nước, độ ẩm, lưu lượng; kể cả hạ mức)
+  if (m.level != waterLevelCurrent()) {
+    Serial.printf("Doi muc canh bao: %s -> %s (%s)\n",
+                  levelLabel(waterLevelCurrent()), levelLabel(m.level), alarmNguon());
+    waterLevelCommit(m.level);
     sendToServer("alert", m);
   }
 
   // 7) Báo cáo định kỳ (lần đầu ngay khi bộ lọc đầy)
-  if (!reportedOnce || now - lastReport >= REPORT_INTERVAL_MS) {
+  if (!reportedOnce || millis() - lastReport >= REPORT_INTERVAL_MS) {
     reportedOnce = true;
-    lastReport   = now;
     sendToServer("report", m);
+    lastReport   = millis();
   }
 }

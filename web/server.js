@@ -187,22 +187,17 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, out);
   }
 
-  // Xem lại một ngày: bản tin cuối ngày (last) và mực nước trung bình mỗi 2 phút (points). Ngày không có dữ liệu thì last = null
-  if (req.method === 'GET' && url.pathname === '/api/day') {
-    const date = url.searchParams.get('date') || '';
-    const s = daily.get(date);
-    if (!s) return sendJson(res, 200, { date, points: [], last: null });
-    const points = [...s.pts.entries()].sort((a, b) => a[0] - b[0]).map(([b, p]) => ({
-      received_at: new Date(b * BUCKET_MS + BUCKET_MS / 2).toISOString(), h_nuoc_cm: p.sum / p.n,
-    }));
-    return sendJson(res, 200, { date, points, last: s.last });
-  }
-
   // Dự báo mực nước (h_cm), lưu lượng (flow_lpm), độ ẩm đất (soil_pct) theo từng mốc horizons_min;
   // cả ba = null khi chưa có model hoặc chưa đủ 5 phút dữ liệu liên tục
   if (req.method === 'GET' && url.pathname === '/api/forecast') {
     // Chỉ cần 5 phút cuối; 200 bản tin là đủ dư
-    return sendJson(res, 200, { horizons_min: HORIZONS_S.map(s => s / 60), h_cm: forecastLatest(model, history.slice(-200)) });
+    const f = forecastLatest(model, history.slice(-200));
+    return sendJson(res, 200, {
+      horizons_min: HORIZONS_S.map(s => s / 60),
+      h_cm: f ? f.h_nuoc_cm : null,
+      flow_lpm: f ? f.flow_lpm : null,
+      soil_pct: f ? f.soil_pct : null,
+    });
   }
 
   // Thời tiết hiện tại và lượng mưa 24 giờ tới; lỗi mạng thì trả bản cũ trong bộ nhớ nếu có

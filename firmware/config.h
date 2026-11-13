@@ -22,9 +22,9 @@ const int  BUZZER_PIN        = 18;     // module còi: I/O -> D18
 const bool BUZZER_ACTIVE_LOW = true;   // MH-FMD thường kích mức thấp; nếu còi kêu ngược thì đổi thành false
 
 // ---------------------- WIFI / SERVER (tự điền) ----------------------
-const char* const WIFI_SSID  = "PTIT_WIFI";
-const char* const WIFI_PASS  = "b23dcce087";
-const char* const SERVER_URL = "http://10.146.124.224:3000/flood";
+const char* const WIFI_SSID  = "GIAHUNG-305";
+const char* const WIFI_PASS  = "GIAHUNG1368";
+const char* const SERVER_URL = "http://192.168.35.101:3000/flood";
 
 // ---------------------- HC-SR04 ----------------------
 const float TEMP_C    = 30.0;   // nhiệt độ môi trường (°C) để bù tốc độ âm thanh
@@ -35,7 +35,7 @@ const float OFFSET_CM = 0.0;    // độ lệch cố định, chỉnh sau khi so
 const int   N_MA      = 5;      // số mẫu của bộ lọc trung bình động
 const float H_TRAM_CM = 10.0;   // chiều cao từ cảm biến xuống đáy (cm), H_nuoc = H_tram - D_loc
 const float YELLOW_CM = 4.0;    // H_nuoc >= 4 cm  -> VÀNG
-const float RED_CM    = 7.0;    // H_nuoc >= 7 cm  -> ĐỎ (D_loc = 3 cm, ngoài vùng mù ~2 cm của HC-SR04)
+const float RED_CM    = 7.0;    // H_nuoc >= 7 cm  -> ĐỎ
 const float HYST_CM   = 0.5;    // trễ khi hạ mức, tránh nhấp nháy giữa 2 mức
 
 // ---------------------- LƯU LƯỢNG YF-S201 ----------------------
@@ -46,13 +46,10 @@ const int ADC_KHO = 4095;       // ADC khi đất khô (0 %)
 const int ADC_UOT = 1500;       // ADC khi đất ướt (100 %), cần hiệu chuẩn lại
 
 // ---------------------- NGƯỠNG CẢNH BÁO ĐỘ ẨM ĐẤT + LƯU LƯỢNG ----------------------
-const float SOIL_YELLOW_PCT = 70.0;   // độ ẩm đất >= 70 %      -> VÀNG
-const float SOIL_RED_PCT    = 90.0;   // độ ẩm đất >= 90 %      -> ĐỎ
-const float SOIL_HYST_PCT   = 2.0;    // trễ khi hạ mức độ ẩm (%)
-const float FLOW_YELLOW_LPM = 10.0;   // lưu lượng >= 10 L/phút -> VÀNG
-const float FLOW_RED_LPM    = 20.0;   // lưu lượng >= 20 L/phút -> ĐỎ
-const float FLOW_HYST_LPM   = 1.0;    // trễ khi hạ mức lưu lượng (L/phút)
-const int   FLOW_MA_N       = 5;      // số mẫu trung bình động của lưu lượng
+const float SOIL_VANG_PCT = 70.0;   // độ ẩm đất >= 70 %      -> VÀNG
+const float SOIL_DO_PCT   = 90.0;   // độ ẩm đất >= 90 %      -> ĐỎ
+const float FLOW_VANG_LPM = 10.0;   // lưu lượng >= 10 L/phút -> VÀNG
+const float FLOW_DO_LPM   = 20.0;   // lưu lượng >= 20 L/phút -> ĐỎ
 
 // ---------------------- THỜI GIAN ----------------------
 const unsigned long INTERVAL_MS        = 1000;    // chu kỳ đo: 1 giây
