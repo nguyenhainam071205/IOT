@@ -2,6 +2,10 @@
 web/data.jsonl
 web/synthetic.jsonl
 web/generate-data.js
+web/demo.js
+
+# API key thời tiết (OpenWeatherMap), mỗi máy tự tạo
+web/weather.json
 
 # File riêng trên máy từng người
 CLAUDE.md

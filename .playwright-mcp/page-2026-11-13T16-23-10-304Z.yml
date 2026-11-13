@@ -1,0 +1,142 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - heading "Trạm đo lũ" [level=1] [ref=e5]
+      - generic [ref=e6]: Mực nước, lưu lượng và độ ẩm đất, cập nhật mỗi 5 giây
+    - generic [ref=e7]: Mất kết nối với trạm · 23:18:12 13/11/2026
+  - alert
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: Mực nước hiện tại
+          - generic [ref=e15]: 2.0cm
+        - generic [ref=e16]: Cảnh báo đỏ (dữ liệu cũ)
+        - generic [ref=e17]: Ngưỡng vàng 4 cm · ngưỡng đỏ 8 cm · cảm biến cách đáy 30 cm
+      - generic [aria-hidden] [ref=e18]:
+        - generic [ref=e20]: "8"
+        - generic [ref=e22]: "4"
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - heading "Dự báo mực nước" [level=2] [ref=e26]
+        - generic [ref=e27]: Mô hình hồi quy
+      - generic [ref=e28]: Trạm đang mất kết nối nên chưa dự báo.
+    - generic [ref=e30]:
+      - generic [ref=e31]: Lưu lượng
+      - generic [ref=e32]: 22.00L/phút
+    - generic [ref=e33]:
+      - generic [ref=e34]: Tổng lưu lượng từ lúc bật trạm
+      - generic [ref=e35]: 5.000L
+    - generic [ref=e36]:
+      - generic [ref=e37]: Độ ẩm đất
+      - generic [ref=e38]: 75.0%
+    - generic [ref=e39]:
+      - generic [ref=e40]:
+        - heading "Mực nước 1 giờ gần nhất" [level=2] [ref=e41]
+        - generic [ref=e42]:
+          - generic [ref=e43]: Đo được
+          - generic [ref=e45]: Dự báo
+          - generic [ref=e47]: Ngưỡng vàng
+          - generic [ref=e49]: Ngưỡng đỏ
+      - generic [ref=e51]:
+        - img [ref=e52]:
+          - generic [ref=e55]: "0"
+          - generic [ref=e56]: "2"
+          - generic [ref=e57]: "4"
+          - generic [ref=e58]: "6"
+          - generic [ref=e59]: "8"
+          - generic [ref=e60]: "10"
+          - generic [ref=e61]: 23:18
+          - generic [ref=e62]: 23:18
+          - generic [ref=e63]: 23:18
+          - generic [ref=e64]: 23:18
+          - generic [ref=e65]: 23:18
+          - generic [ref=e66]: 23:18
+        - generic: 23:18:12 13/11/20262.0 cm · 22.00 L/phút
+    - generic [ref=e68]:
+      - generic [ref=e69]:
+        - heading "Bản tin 7 ngày gần nhất" [level=2] [ref=e70]
+        - generic [ref=e71]: Bấm vào một ngày để xem chi tiết
+      - table [ref=e73]:
+        - rowgroup [ref=e74]:
+          - row [ref=e75]:
+            - columnheader "Ngày" [ref=e76]
+            - columnheader "Bản tin" [ref=e77]
+            - columnheader "Mức cao nhất" [ref=e78]
+            - columnheader "H cao nhất (cm)" [ref=e79]
+            - columnheader "H trung bình (cm)" [ref=e80]
+            - columnheader "Q cao nhất (L/phút)" [ref=e81]
+            - columnheader "Lượng nước (L)" [ref=e82]
+            - columnheader "Độ ẩm TB (%)" [ref=e83]
+            - columnheader "Lần cảnh báo" [ref=e84]
+        - rowgroup [ref=e85]:
+          - row [ref=e86] [cursor=pointer]:
+            - cell "Thứ Sáu, 13/11/2026" [ref=e87]
+            - cell "1" [ref=e88]
+            - cell "Cảnh báo đỏ" [ref=e89]
+            - cell "2.0" [ref=e90]
+            - cell "2.0" [ref=e91]
+            - cell "22.00" [ref=e92]
+            - cell "0.0" [ref=e93]
+            - cell "75.0" [ref=e94]
+            - cell "1" [ref=e95]
+          - row [ref=e96] [cursor=pointer]:
+            - cell "Thứ Năm, 12/11/2026" [ref=e97]
+            - cell "509" [ref=e98]
+            - cell "Cảnh báo đỏ" [ref=e99]
+            - cell "28.0" [ref=e100]
+            - cell "6.1" [ref=e101]
+            - cell "26.80" [ref=e102]
+            - cell "24.7" [ref=e103]
+            - cell "1.3" [ref=e104]
+            - cell "84" [ref=e105]
+          - row [ref=e106] [cursor=pointer]:
+            - cell "Thứ Tư, 11/11/2026" [ref=e107]
+            - cell "0" [ref=e108]
+            - cell "Không có dữ liệu" [ref=e109]
+            - cell "–" [ref=e110]
+            - cell "–" [ref=e111]
+            - cell "–" [ref=e112]
+            - cell "–" [ref=e113]
+            - cell "–" [ref=e114]
+            - cell "–" [ref=e115]
+          - row [ref=e116] [cursor=pointer]:
+            - cell "Thứ Ba, 10/11/2026" [ref=e117]
+            - cell "0" [ref=e118]
+            - cell "Không có dữ liệu" [ref=e119]
+            - cell "–" [ref=e120]
+            - cell "–" [ref=e121]
+            - cell "–" [ref=e122]
+            - cell "–" [ref=e123]
+            - cell "–" [ref=e124]
+            - cell "–" [ref=e125]
+          - row [ref=e126] [cursor=pointer]:
+            - cell "Thứ Hai, 09/11/2026" [ref=e127]
+            - cell "0" [ref=e128]
+            - cell "Không có dữ liệu" [ref=e129]
+            - cell "–" [ref=e130]
+            - cell "–" [ref=e131]
+            - cell "–" [ref=e132]
+            - cell "–" [ref=e133]
+            - cell "–" [ref=e134]
+            - cell "–" [ref=e135]
+          - row [ref=e136] [cursor=pointer]:
+            - cell "Chủ Nhật, 08/11/2026" [ref=e137]
+            - cell "0" [ref=e138]
+            - cell "Không có dữ liệu" [ref=e139]
+            - cell "–" [ref=e140]
+            - cell "–" [ref=e141]
+            - cell "–" [ref=e142]
+            - cell "–" [ref=e143]
+            - cell "–" [ref=e144]
+            - cell "–" [ref=e145]
+          - row [ref=e146] [cursor=pointer]:
+            - cell "Thứ Bảy, 07/11/2026" [ref=e147]
+            - cell "0" [ref=e148]
+            - cell "Không có dữ liệu" [ref=e149]
+            - cell "–" [ref=e150]
+            - cell "–" [ref=e151]
+            - cell "–" [ref=e152]
+            - cell "–" [ref=e153]
+            - cell "–" [ref=e154]
+            - cell "–" [ref=e155]
