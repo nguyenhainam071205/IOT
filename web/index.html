@@ -4,59 +4,240 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trạm đo lũ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#f4f6f8; --card:#fff; --text:#1d2733; --muted:#6b7785; --line:#e2e6ea;
-          --normal:#1f9d55; --yellow:#d4a000; --red:#d63031; --blue:#2f6fde; }
+  :root {
+    --bg: #f5f6f8; --surface: #fff; --ink: #111827; --muted: #5b6573; --line: #e4e7ec; --soft: #f0f2f5;
+    --accent: #1d6fe8; --normal: #15803d; --yellow: #b7791f; --red: #dc2626;
+    --radius: 14px; --shadow: 0 1px 2px rgba(16, 24, 40, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0f14; --surface: #121821; --ink: #e6edf3; --muted: #97a3b0; --line: #223040; --soft: #18212c;
+      --accent: #4c8dff; --normal: #34c46a; --yellow: #e0a730; --red: #f05252; --shadow: none;
+    }
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
-  main { max-width: 1000px; margin: 0 auto; padding: 16px; }
-  header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
-  h1 { font-size: 22px; margin: 8px 0; }
-  .status { font-size: 14px; color: var(--muted); }
-  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; background:var(--muted); }
-  .banner { border-radius: 10px; padding: 16px; color:#fff; font-size: 20px; font-weight: 600; margin: 12px 0; background: var(--muted); }
-  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-  .card { background: var(--card); border-radius: 10px; padding: 14px; border: 1px solid var(--line); }
-  .card .label { font-size: 13px; color: var(--muted); }
-  .card .value { font-size: 28px; font-weight: 600; margin-top: 4px; }
-  .card .unit { font-size: 14px; color: var(--muted); font-weight: 400; }
-  h2 { font-size: 16px; margin: 20px 0 8px; }
-  svg { width: 100%; height: 240px; display:block; }
-  .table-wrap { overflow-x: auto; }
+  html, body { margin: 0; }
+  body { font: 16px/1.5 Inter, system-ui, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink);
+         -webkit-font-smoothing: antialiased; }
+  .num { font-variant-numeric: tabular-nums; }
+  main { max-width: 1200px; margin: 0 auto; padding: 32px 24px 48px; }
+
+  header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+  h1 { font-size: 28px; line-height: 1.2; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+          background: var(--surface); border: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.live { background: var(--normal); box-shadow: 0 0 0 0 color-mix(in srgb, var(--normal) 60%, transparent); animation: ping 2s infinite; }
+  @keyframes ping { 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px;
+          box-shadow: var(--shadow); min-width: 0; }
+  .span-7 { grid-column: span 7; } .span-5 { grid-column: span 5; } .span-4 { grid-column: span 4; } .span-12 { grid-column: span 12; }
+  .label { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 0; }
+
+  /* Mức cảnh báo */
+  .status { display: flex; gap: 24px; align-items: stretch; border-left: 4px solid var(--lv, var(--muted)); }
+  .status .body { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 16px; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 4px 12px; border-radius: 999px;
+           font-size: 14px; font-weight: 600; color: var(--lv, var(--muted)); background: color-mix(in srgb, var(--lv, var(--muted)) 12%, transparent); }
+  .badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .big { font-size: 64px; line-height: 1; font-weight: 700; letter-spacing: -.03em; }
+  .big small { font-size: 20px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+  .meta { font-size: 14px; color: var(--muted); }
+  .gauge { position: relative; width: 56px; border-radius: 10px; background: var(--soft); overflow: hidden; min-height: 168px; }
+  .gauge .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--lv, var(--accent)); opacity: .85; transition: height .6s ease; }
+  .gauge .mark { position: absolute; left: 0; right: 0; border-top: 2px dashed; }
+  .gauge .mark span { position: absolute; right: 4px; top: -18px; font-size: 13px; font-weight: 600; }
+
+  /* Dự báo */
+  .fc-rows { display: grid; gap: 12px; }
+  .fc-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-radius: 10px; background: var(--soft); }
+  .fc-row .v { font-size: 24px; font-weight: 700; }
+  .fc-row .v small { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .trend { font-size: 14px; font-weight: 600; margin-left: 8px; }
+  .warn { margin-top: 16px; padding: 12px 16px; border-radius: 10px; font-size: 15px; font-weight: 600;
+          color: var(--lv); background: color-mix(in srgb, var(--lv) 12%, transparent); }
+  .empty { color: var(--muted); font-size: 15px; padding: 12px 0; }
+
+  /* Chỉ số phụ */
+  .metric .value { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin-top: 8px; }
+  .metric .value small { font-size: 15px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+  .spark { display: block; width: 100%; height: 40px; margin-top: 12px; }
+
+  /* Biểu đồ */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+  .chart-box { position: relative; }
+  #chart { display: block; width: 100%; height: 300px; }
+  .tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 13px; padding: 8px 10px;
+         border-radius: 8px; white-space: nowrap; transform: translate(-50%, -110%); opacity: 0; transition: opacity .1s; }
+
+  /* Bảng */
+  .table-wrap { overflow: auto; max-height: 420px; margin: 0 -24px -24px; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { color: var(--muted); font-weight: 500; }
-  .tag { padding: 2px 8px; border-radius: 10px; color: #fff; font-size: 12px; }
-  .forecast { margin: -4px 0 12px; font-weight: 600; border-left: 6px solid var(--muted); }
+  th, td { text-align: left; padding: 10px 24px; white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-weight: 500; font-size: 13px; border-bottom: 1px solid var(--line); }
+  td { border-bottom: 1px solid var(--line); }
+  td.n { text-align: right; } th.n { text-align: right; }
+  tbody tr { transition: background .15s; }
+  tbody tr:hover { background: var(--soft); }
+  /* Thời tiết */
+  .wx { display: grid; grid-template-columns: minmax(260px, 1fr) 2fr; gap: 32px; align-items: center; }
+  .wx-now { display: flex; align-items: center; gap: 16px; }
+  .wx-now img { width: 72px; height: 72px; background: var(--soft); border-radius: 12px; }
+  .wx-temp { font-size: 40px; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
+  .wx-temp small { font-size: 18px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+  .wx-desc { font-weight: 600; margin: 4px 0 2px; }
+  .wx-desc::first-letter { text-transform: uppercase; }
+  .wx-strip { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin-top: 12px; }
+  .wx-slot { text-align: center; font-size: 13px; color: var(--muted); }
+  .wx-slot img { width: 36px; height: 36px; display: block; margin: 0 auto; }
+  .wx-bar { height: 48px; display: flex; align-items: flex-end; justify-content: center; margin: 4px 0; }
+  .wx-bar i { width: 60%; min-height: 2px; border-radius: 4px 4px 0 0; background: var(--accent); }
+  .wx-slot b { display: block; color: var(--ink); font-weight: 600; }
+  @media (max-width: 900px) { .wx { grid-template-columns: 1fr; gap: 16px; } }
+  @media (max-width: 640px) { .wx-strip { grid-template-columns: repeat(4, 1fr); row-gap: 16px; } }
+  table.wide th { white-space: normal; vertical-align: bottom; }
+  table.wide th, table.wide td { padding-left: 12px; padding-right: 12px; }
+  table.wide th:first-child, table.wide td:first-child { padding-left: 24px; }
+  table.wide th:last-child, table.wide td:last-child { padding-right: 24px; }
+  #days tr { cursor: pointer; }
+  #days tr.sel { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  #days tr.none td { color: var(--muted); }
+  .tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  select, .btn { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+                 border-radius: 8px; padding: 6px 12px; cursor: pointer; transition: background .15s, transform .1s; }
+  .btn:hover, select:hover { background: var(--soft); }
+  .btn:active { transform: translateY(1px); }
+  .btn.more { display: block; margin: 16px auto 0; }
+  .table-wrap.flat { margin: 0; max-height: 480px; border: 1px solid var(--line); border-radius: 10px; }
+  #dayChart { display: block; width: 100%; height: 280px; }
+  .tag { font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
+
+  @media (max-width: 900px) { .span-7, .span-5, .span-4 { grid-column: span 12; } }
+  @media (max-width: 640px) {
+    main { padding: 24px 16px 32px; } .grid { gap: 12px; } .card { padding: 16px; }
+    .big { font-size: 48px; } .table-wrap { margin: 0 -16px -16px; } th, td { padding: 10px 16px; }
+    #chart { height: 240px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
 <main>
   <header>
-    <h1>Trạm đo lũ</h1>
-    <div class="status"><span class="dot" id="dot"></span><span id="conn">Đang tải...</span></div>
+    <div>
+      <h1>Trạm đo lũ</h1>
+      <div class="sub">Mực nước, lưu lượng và độ ẩm đất, cập nhật mỗi 5 giây</div>
+    </div>
+    <div class="pill"><span class="dot" id="dot"></span><span id="conn">Đang tải...</span></div>
   </header>
 
-  <div class="banner" id="banner">Chưa có dữ liệu</div>
-  <div class="card forecast" id="fcWarn" hidden></div>
-
   <div class="grid">
-    <div class="card"><div class="label">Mực nước</div><div class="value"><span id="h">--</span> <span class="unit">cm</span></div></div>
-    <div class="card"><div class="label">Lưu lượng</div><div class="value"><span id="q">--</span> <span class="unit">L/phút</span></div></div>
-    <div class="card"><div class="label">Tổng lưu lượng</div><div class="value"><span id="tot">--</span> <span class="unit">L</span></div></div>
-    <div class="card"><div class="label">Độ ẩm đất</div><div class="value"><span id="w">--</span> <span class="unit">%</span></div></div>
-    <div class="card"><div class="label">Dự báo mực nước</div><div class="value" id="fc" style="font-size:18px">--</div></div>
-  </div>
+    <section class="card status span-7" id="statusCard">
+      <div class="body">
+        <div>
+          <div class="label">Mực nước hiện tại</div>
+          <div class="big num" style="margin-top:12px"><span id="h">--</span><small>cm</small></div>
+        </div>
+        <span class="badge" id="badge">Chưa có dữ liệu</span>
+        <div class="meta" id="thresholds"></div>
+      </div>
+      <div class="gauge" id="gauge" aria-hidden="true"></div>
+    </section>
 
-  <h2>Mực nước theo thời gian</h2>
-  <div class="card"><svg id="chart" viewBox="0 0 1000 240" preserveAspectRatio="none"></svg></div>
+    <section class="card span-5">
+      <div class="card-head"><h2>Dự báo mực nước</h2><span class="label">Mô hình hồi quy</span></div>
+      <div id="fc"><div class="empty">Đang tải...</div></div>
+    </section>
 
-  <h2>Bản tin gần đây</h2>
-  <div class="card table-wrap">
-    <table>
-      <thead><tr><th>Thời gian</th><th>Loại</th><th>Mức</th><th>H (cm)</th><th>Q (L/phút)</th><th>Tổng (L)</th><th>Độ ẩm (%)</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
+    <section class="card metric span-4">
+      <div class="label">Lưu lượng</div>
+      <div class="value num"><span id="q">--</span><small>L/phút</small></div>
+      <svg class="spark" id="sparkQ" viewBox="0 0 100 40" preserveAspectRatio="none"></svg>
+    </section>
+    <section class="card metric span-4">
+      <div class="label">Tổng lưu lượng từ lúc bật trạm</div>
+      <div class="value num"><span id="tot">--</span><small>L</small></div>
+      <svg class="spark" id="sparkT" viewBox="0 0 100 40" preserveAspectRatio="none"></svg>
+    </section>
+    <section class="card metric span-4">
+      <div class="label">Độ ẩm đất</div>
+      <div class="value num"><span id="w">--</span><small>%</small></div>
+      <svg class="spark" id="sparkW" viewBox="0 0 100 40" preserveAspectRatio="none"></svg>
+    </section>
+
+    <section class="card span-12" id="weather" hidden>
+      <div class="card-head"><h2 id="wxTitle">Thời tiết</h2><span class="label" id="wxUpdated"></span></div>
+      <div class="wx">
+        <div class="wx-now">
+          <img id="wxIcon" alt="" width="72" height="72">
+          <div>
+            <div class="wx-temp num"><span id="wxTemp">--</span><small>°C</small></div>
+            <div id="wxDesc" class="wx-desc"></div>
+            <div class="meta" id="wxMeta"></div>
+          </div>
+        </div>
+        <div class="wx-next">
+          <div class="label" id="wxRain"></div>
+          <div class="wx-strip" id="wxStrip"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card span-12">
+      <div class="card-head">
+        <h2 id="chartTitle">Mực nước theo thời gian</h2>
+        <div class="legend">
+          <span><i style="border-color:var(--accent)"></i>Đo được</span>
+          <span><i style="border-color:var(--accent);border-top-style:dashed"></i>Dự báo</span>
+          <span><i style="border-color:var(--yellow);border-top-style:dashed"></i>Ngưỡng vàng</span>
+          <span><i style="border-color:var(--red);border-top-style:dashed"></i>Ngưỡng đỏ</span>
+        </div>
+      </div>
+      <div class="chart-box"><svg id="chart"></svg><div class="tip"></div></div>
+    </section>
+
+    <section class="card span-12">
+      <div class="card-head"><h2>Bản tin 7 ngày gần nhất</h2><span class="label">Bấm vào một ngày để xem chi tiết</span></div>
+      <div class="table-wrap">
+        <table class="wide">
+          <thead><tr><th>Ngày</th><th class="n">Bản tin</th><th>Mức cao nhất</th><th class="n">H cao nhất (cm)</th>
+            <th class="n">H trung bình (cm)</th><th class="n">Q cao nhất (L/phút)</th><th class="n">Lượng nước (L)</th><th class="n">Độ ẩm TB (%)</th><th class="n">Lần cảnh báo</th></tr></thead>
+          <tbody id="days"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card span-12" id="detail" hidden>
+      <div class="card-head">
+        <h2 id="detailTitle">Chi tiết ngày</h2>
+        <div class="tools">
+          <label class="label" for="daySel">Chọn ngày</label>
+          <select id="daySel"></select>
+          <button class="btn" id="closeDetail" type="button">Đóng</button>
+        </div>
+      </div>
+      <div id="detailBody">
+        <div class="chart-box"><svg id="dayChart"></svg><div class="tip"></div></div>
+        <div class="card-head" style="margin:24px 0 8px"><h2>Bản tin trong ngày</h2><span class="label" id="dayCount"></span></div>
+        <div class="table-wrap flat">
+          <table>
+            <thead><tr><th>Giờ</th><th>Loại</th><th>Mức</th><th class="n">H (cm)</th><th class="n">Q (L/phút)</th><th class="n">Tổng (L)</th><th class="n">Độ ẩm (%)</th></tr></thead>
+            <tbody id="dayRows"></tbody>
+          </table>
+        </div>
+        <button class="btn more" id="more" type="button" hidden>Xem thêm 100 bản tin</button>
+      </div>
+    </section>
   </div>
 </main>
 
@@ -64,95 +245,271 @@
 // Phải khớp YELLOW_CM / RED_CM trong config.h của ESP32
 const YELLOW_CM = 4.0, RED_CM = 8.0;
 const OFFLINE_MS = 20 * 1000;       // ESP32 báo cáo 5 giây/lần, quá 20 giây (lỡ 3-4 bản tin) coi là mất kết nối
+const NEED_MIN = 5;                 // forecast.js cần 5 phút dữ liệu liên tục
 const LEVEL = {
-  normal: { text: 'BÌNH THƯỜNG', color: 'var(--normal)' },
-  yellow: { text: 'CẢNH BÁO VÀNG', color: 'var(--yellow)' },
-  red:    { text: 'CẢNH BÁO ĐỎ', color: 'var(--red)' },
+  normal: { text: 'Bình thường', color: 'var(--normal)' },
+  yellow: { text: 'Cảnh báo vàng', color: 'var(--yellow)' },
+  red:    { text: 'Cảnh báo đỏ', color: 'var(--red)' },
 };
 const $ = id => document.getElementById(id);
 const fmtTime = iso => new Date(iso).toLocaleString('vi-VN');
+const fmtClock = ms => new Date(ms).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 const RANK = ['normal', 'yellow', 'red'];
 const levelOf = h => h >= RED_CM ? 'red' : h >= YELLOW_CM ? 'yellow' : 'normal';
+let last = { data: null, fc: null };
 
-function render(data, fc) {
-  const last = data[data.length - 1];
-  if (!last) return;
-
-  const age = Date.now() - new Date(last.received_at);
-  const online = age < OFFLINE_MS;
-  $('dot').style.background = online ? 'var(--normal)' : 'var(--red)';
-  $('conn').textContent = (online ? 'Trạm đang hoạt động' : 'Mất kết nối với trạm') + ' · cập nhật ' + fmtTime(last.received_at);
-
-  const lv = LEVEL[last.level];
-  $('banner').textContent = lv.text + (online ? '' : ' (dữ liệu cũ)');
-  $('banner').style.background = lv.color;
-
-  $('h').textContent = last.h_nuoc_cm.toFixed(1);
-  $('q').textContent = last.flow_lpm.toFixed(2);
-  $('tot').textContent = last.total_l.toFixed(3);
-  $('w').textContent = last.soil_pct.toFixed(1);
-
-  // Dự báo: cảnh báo sớm nếu mực nước dự báo lên mức cao hơn mức hiện tại
-  const hasFc = online && fc && fc.h_cm;
-  $('fc').textContent = hasFc
-    ? fc.horizons_min.map((m, k) => `+${m} phút: ${fc.h_cm[k].toFixed(1)} cm`).join(' · ')
-    : 'chưa đủ dữ liệu';
-  const k = hasFc ? fc.h_cm.findIndex(h => RANK.indexOf(levelOf(h)) > RANK.indexOf(last.level)) : -1;
-  $('fcWarn').hidden = k < 0;
-  if (k >= 0) {
-    const lvf = LEVEL[levelOf(fc.h_cm[k])];
-    $('fcWarn').textContent = `Dự báo: có thể lên ${lvf.text} trong khoảng ${fc.horizons_min[k]} phút nữa (${fc.h_cm[k].toFixed(1)} cm)`;
-    $('fcWarn').style.borderLeftColor = lvf.color;
-  }
-
-  drawChart(data, hasFc ? fc : null);
-
-  $('rows').innerHTML = data.slice(-30).reverse().map(d => `
-    <tr><td>${fmtTime(d.received_at)}</td><td>${d.event === 'alert' ? 'Cảnh báo' : 'Định kỳ'}</td>
-    <td><span class="tag" style="background:${LEVEL[d.level].color}">${LEVEL[d.level].text}</span></td>
-    <td>${d.h_nuoc_cm.toFixed(1)}</td><td>${d.flow_lpm.toFixed(2)}</td>
-    <td>${d.total_l.toFixed(3)}</td><td>${d.soil_pct.toFixed(1)}</td></tr>`).join('');
+// Số phút dữ liệu liên tục tính tới bản tin cuối (khoảng trống quá 15 s là đứt)
+function continuousMin(t) {
+  let i = t.length - 1;
+  while (i > 0 && t[i] - t[i - 1] <= 15000) i--;
+  return (t[t.length - 1] - t[i]) / 60000;
 }
 
-function drawChart(data, fc) {
-  const W = 1000, H = 240, pad = 30;
-  const t = data.map(d => +new Date(d.received_at));
+function render(data, fc) {
+  const cur = data[data.length - 1];
+  const t = data.map(d => Date.parse(d.received_at));
+  const online = Date.now() - t[t.length - 1] < OFFLINE_MS;
+
+  $('dot').className = 'dot' + (online ? ' live' : '');
+  $('dot').style.background = online ? '' : 'var(--red)';
+  $('conn').textContent = (online ? 'Trạm đang hoạt động' : 'Mất kết nối với trạm') + ' · ' + fmtTime(cur.received_at);
+
+  const lv = LEVEL[cur.level];
+  $('statusCard').style.setProperty('--lv', lv.color);
+  $('badge').textContent = lv.text + (online ? '' : ' (dữ liệu cũ)');
+  $('h').textContent = cur.h_nuoc_cm.toFixed(1);
+  $('thresholds').textContent = `Ngưỡng vàng ${YELLOW_CM} cm · ngưỡng đỏ ${RED_CM} cm · cảm biến cách đáy ${cur.h_tram_cm} cm`;
+  drawGauge(cur.h_nuoc_cm);
+
+  $('q').textContent = cur.flow_lpm.toFixed(2);
+  $('tot').textContent = cur.total_l.toFixed(3);
+  $('w').textContent = cur.soil_pct.toFixed(1);
+  spark('sparkQ', data.map(d => d.flow_lpm));
+  spark('sparkT', data.map(d => d.total_l));
+  spark('sparkW', data.map(d => d.soil_pct));
+
+  const hasFc = online && fc && Array.isArray(fc.h_cm);
+  renderForecast(cur, fc, hasFc, online, t);
+  drawChart($('chart'), data, hasFc ? fc : null);
+  $('chartTitle').textContent = `Mực nước ${Math.round((t[t.length - 1] - t[0]) / 60000)} phút gần nhất`;
+}
+
+// ---------- 7 ngày gần nhất và chi tiết theo ngày ----------
+const tag = lv => `<span class="tag" style="--c:${LEVEL[lv].color}">${LEVEL[lv].text}</span>`;
+const dayLabel = key => { const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }); };
+const fx = (v, n) => v === null ? '–' : v.toFixed(n);
+let days = [], selDay = null, dayData = [], shown = 0;
+
+function renderDays() {
+  $('days').innerHTML = days.map(s => `
+    <tr data-date="${s.date}" class="${s.date === selDay ? 'sel' : ''} ${s.count ? '' : 'none'}">
+      <td>${dayLabel(s.date)}</td><td class="n num">${s.count}</td>
+      <td>${s.count ? tag(s.max_level) : 'Không có dữ liệu'}</td>
+      <td class="n num">${fx(s.h_max, 1)}</td><td class="n num">${fx(s.h_avg, 1)}</td>
+      <td class="n num">${s.count ? s.flow_max.toFixed(2) : '–'}</td><td class="n num">${s.count ? s.litres.toFixed(1) : '–'}</td>
+      <td class="n num">${fx(s.soil_avg, 1)}</td><td class="n num">${s.count ? s.alerts : '–'}</td></tr>`).join('');
+  const keep = $('daySel').value;
+  $('daySel').innerHTML = days.map(s => `<option value="${s.date}">${dayLabel(s.date)} (${s.count})</option>`).join('');
+  $('daySel').value = selDay || keep;
+}
+
+async function openDay(date) {
+  selDay = date;
+  renderDays();
+  $('detail').hidden = false;
+  $('detailTitle').textContent = 'Chi tiết ' + dayLabel(date);
+  $('dayRows').innerHTML = '<tr><td colspan="7" class="empty">Đang tải...</td></tr>';
+  try {
+    dayData = await fetch('/api/day?date=' + date).then(r => r.json());
+  } catch { dayData = []; }
+  if (selDay !== date) return;   // người dùng đã chọn ngày khác trong lúc tải
+  shown = 0;
+  $('dayCount').textContent = `${dayData.length} bản tin`;
+  if (dayData.length > 1) drawChart($('dayChart'), dayData, null);
+  else $('dayChart').innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="var(--muted)" font-size="14">Không có dữ liệu trong ngày này</text>`;
+  $('dayRows').innerHTML = '';
+  showMore();
+  $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Bảng chi tiết: mới nhất trước, mỗi lần thêm 100 dòng để trình duyệt không phải vẽ cả chục nghìn dòng một lúc
+function showMore() {
+  const rows = dayData.slice().reverse().slice(shown, shown + 100);
+  shown += rows.length;
+  $('dayRows').insertAdjacentHTML('beforeend', rows.map(d => `
+    <tr><td class="num">${new Date(d.received_at).toLocaleTimeString('vi-VN')}</td><td>${d.event === 'alert' ? 'Cảnh báo' : 'Định kỳ'}</td>
+    <td>${tag(d.level)}</td><td class="n num">${d.h_nuoc_cm.toFixed(1)}</td><td class="n num">${d.flow_lpm.toFixed(2)}</td>
+    <td class="n num">${d.total_l.toFixed(3)}</td><td class="n num">${d.soil_pct.toFixed(1)}</td></tr>`).join(''));
+  $('more').hidden = shown >= dayData.length;
+}
+
+$('days').onclick = e => { const tr = e.target.closest('tr[data-date]'); if (tr && !tr.classList.contains('none')) openDay(tr.dataset.date); };
+$('daySel').onchange = e => openDay(e.target.value);
+$('more').onclick = showMore;
+$('closeDetail').onclick = () => { $('detail').hidden = true; selDay = null; renderDays(); };
+
+function renderForecast(cur, fc, hasFc, online, t) {
+  if (!hasFc) {
+    let why;
+    if (!online) why = 'Trạm đang mất kết nối nên chưa dự báo.';
+    else if (!fc || !('h_cm' in fc)) why = 'Server chưa có phần dự báo. Cập nhật code và chạy lại server.js.';
+    else {
+      const m = continuousMin(t);
+      why = m < NEED_MIN
+        ? `Cần ${NEED_MIN} phút dữ liệu liên tục, hiện có ${m.toFixed(1)} phút.`
+        : 'Server chưa có model.json. Chạy node train.js rồi khởi động lại server.';
+    }
+    $('fc').innerHTML = `<div class="empty">${why}</div>`;
+    return;
+  }
+  const rows = fc.horizons_min.map((m, k) => {
+    const h = fc.h_cm[k], d = h - cur.h_nuoc_cm, c = LEVEL[levelOf(h)].color;
+    const arrow = Math.abs(d) < 0.1 ? '→' : d > 0 ? '↑' : '↓';
+    return `<div class="fc-row"><span class="label">Sau ${m} phút</span>
+      <span><span class="v num" style="color:${c}">${h.toFixed(1)}<small> cm</small></span>
+      <span class="trend num" style="color:${c}">${arrow} ${d >= 0 ? '+' : ''}${d.toFixed(1)}</span></span></div>`;
+  }).join('');
+  const k = fc.h_cm.findIndex(h => RANK.indexOf(levelOf(h)) > RANK.indexOf(cur.level));
+  const warn = k < 0 ? '' : (() => {
+    const lvf = LEVEL[levelOf(fc.h_cm[k])];
+    return `<div class="warn" style="--lv:${lvf.color}">Có thể lên ${lvf.text.toLowerCase()} trong khoảng ${fc.horizons_min[k]} phút nữa</div>`;
+  })();
+  $('fc').innerHTML = `<div class="fc-rows">${rows}</div>${warn}`;
+}
+
+function drawGauge(h) {
+  const top = Math.max(RED_CM + 4, h);
+  const pct = v => (v / top * 100).toFixed(1) + '%';
+  $('gauge').innerHTML = `<div class="fill" style="height:${pct(Math.min(h, top))}"></div>
+    <div class="mark" style="bottom:${pct(RED_CM)};color:var(--red)"><span>${RED_CM}</span></div>
+    <div class="mark" style="bottom:${pct(YELLOW_CM)};color:var(--yellow)"><span>${YELLOW_CM}</span></div>`;
+}
+
+function spark(id, vals) {
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+  const pts = vals.map((v, i) => `${(i / Math.max(vals.length - 1, 1) * 100).toFixed(2)},${(36 - (v - lo) / span * 32).toFixed(2)}`).join(' ');
+  $(id).innerHTML = `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`;
+}
+
+function drawChart(svg, data, fc) {
+  const W = svg.clientWidth, H = svg.clientHeight, L = 40, R = 16, T = 12, B = 28;
+  const t = data.map(d => Date.parse(d.received_at));
   const tLast = t[t.length - 1];
   const t0 = t[0], t1 = Math.max(fc ? tLast + Math.max(...fc.horizons_min) * 60000 : tLast, t0 + 1);
-  const maxH = Math.max(RED_CM + 2, ...data.map(d => d.h_nuoc_cm), ...(fc ? fc.h_cm : []));
-  const x = v => pad + (v - t0) / (t1 - t0) * (W - 2 * pad);
-  const y = v => H - pad - v / maxH * (H - 2 * pad);
+  const maxH = Math.ceil(Math.max(RED_CM + 2, ...data.map(d => d.h_nuoc_cm), ...(fc ? fc.h_cm : [])));
+  const x = v => L + (v - t0) / (t1 - t0) * (W - L - R);
+  const y = v => T + (1 - v / maxH) * (H - T - B);
 
-  const line = (v, color, label) =>
-    `<line x1="${pad}" x2="${W - pad}" y1="${y(v)}" y2="${y(v)}" stroke="${color}" stroke-dasharray="6 4"/>
-     <text x="${W - pad}" y="${y(v) - 4}" text-anchor="end" font-size="12" fill="${color}">${label}</text>`;
-  const pts = data.map((d, i) => `${x(t[i]).toFixed(1)},${y(d.h_nuoc_cm).toFixed(1)}`).join(' ');
-  // Đường dự báo nét đứt nối tiếp từ điểm đo cuối
+  const step = maxH <= 12 ? 2 : maxH <= 30 ? 5 : 10;
+  let grid = '';
+  for (let v = 0; v <= maxH; v += step) {
+    grid += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/>
+      <text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${v}</text>`;
+  }
+  const ticks = W < 560 ? 3 : 5;
+  for (let i = 0; i <= ticks; i++) {
+    const tv = t0 + (t1 - t0) * i / ticks;
+    grid += `<text x="${x(tv)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === ticks ? 'end' : 'middle'}" font-size="12" fill="var(--muted)">${fmtClock(tv)}</text>`;
+  }
+  const zone = (a, b, c) => `<rect x="${L}" width="${W - L - R}" y="${y(b)}" height="${y(a) - y(b)}" fill="${c}" opacity=".07"/>`;
+  const thr = (v, c) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="${c}" stroke-dasharray="6 4"/>`;
+  // Tách thành các đoạn liên tục: quá 1 phút không có bản tin thì ngắt đường, không nối thẳng qua khoảng mất dữ liệu
+  const segs = [];
+  data.forEach((d, i) => {
+    if (i === 0 || t[i] - t[i - 1] > 60000) segs.push([]);
+    segs[segs.length - 1].push([x(t[i]).toFixed(1), y(d.h_nuoc_cm).toFixed(1)]);
+  });
+  const line = segs.map(s => 'M' + s.map(p => p.join(',')).join(' L')).join(' ');
+  const area = segs.map(s => `M${s[0][0]},${y(0)} L${s.map(p => p.join(',')).join(' L')} L${s[s.length - 1][0]},${y(0)} Z`).join(' ');
   const fcPts = fc ? [`${x(tLast)},${y(data[data.length - 1].h_nuoc_cm)}`,
     ...fc.h_cm.map((h, k) => `${x(tLast + fc.horizons_min[k] * 60000)},${y(h)}`)].join(' ') : '';
+  const fcDots = fc ? fc.h_cm.map((h, k) => `<circle cx="${x(tLast + fc.horizons_min[k] * 60000)}" cy="${y(h)}" r="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>`).join('') : '';
 
-  $('chart').innerHTML = `
-    <line x1="${pad}" x2="${W - pad}" y1="${y(0)}" y2="${y(0)}" stroke="#ccc"/>
-    ${line(YELLOW_CM, 'var(--yellow)', 'Vàng ' + YELLOW_CM + ' cm')}
-    ${line(RED_CM, 'var(--red)', 'Đỏ ' + RED_CM + ' cm')}
-    <polyline points="${pts}" fill="none" stroke="var(--blue)" stroke-width="2" vector-effect="non-scaling-stroke"/>
-    <polyline points="${fcPts}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-dasharray="5 5" opacity="0.6" vector-effect="non-scaling-stroke"/>
-    <text x="${pad}" y="${H - 8}" font-size="12" fill="#888">${fmtTime(t0)}</text>
-    <text x="${W - pad}" y="${H - 8}" font-size="12" fill="#888" text-anchor="end">${fmtTime(t1)}${fc ? ' (dự báo)' : ''}</text>`;
+  svg.innerHTML = `
+    <defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${zone(YELLOW_CM, RED_CM, 'var(--yellow)')}${zone(RED_CM, maxH, 'var(--red)')}
+    ${grid}${thr(YELLOW_CM, 'var(--yellow)')}${thr(RED_CM, 'var(--red)')}
+    <path d="${area}" fill="url(#ga)"/>
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+    ${fc ? `<line x1="${x(tLast)}" x2="${x(tLast)}" y1="${T}" y2="${H - B}" stroke="var(--line)"/>` : ''}
+    <polyline points="${fcPts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 5"/>
+    ${fcDots}
+    <line class="cross" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-width="1" opacity="0"/>
+    <circle class="hot" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" opacity="0"/>`;
+
+  // Rê chuột: điểm đo gần nhất theo trục thời gian (tìm nhị phân vì một ngày có tới khoảng 17.000 điểm)
+  const cross = svg.querySelector('.cross'), hot = svg.querySelector('.hot'), tip = svg.parentNode.querySelector('.tip');
+  svg.onmousemove = e => {
+    const px = e.clientX - svg.getBoundingClientRect().left;
+    const tv = t0 + (px - L) / (W - L - R) * (t1 - t0);
+    let lo = 0, hi = t.length - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (t[mid] < tv) lo = mid + 1; else hi = mid; }
+    const i = lo > 0 && tv - t[lo - 1] < t[lo] - tv ? lo - 1 : lo;
+    const d = data[i], cx = x(t[i]), cy = y(d.h_nuoc_cm);
+    cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('opacity', 1);
+    hot.setAttribute('cx', cx); hot.setAttribute('cy', cy); hot.setAttribute('opacity', 1);
+    tip.innerHTML = `${fmtTime(d.received_at)}<br><b>${d.h_nuoc_cm.toFixed(1)} cm</b> · ${d.flow_lpm.toFixed(2)} L/phút`;
+    tip.style.left = Math.min(Math.max(cx, 90), W - 90) + 'px'; tip.style.top = cy + 'px'; tip.style.opacity = 1;
+  };
+  svg.onmouseleave = () => { tip.style.opacity = 0; cross.setAttribute('opacity', 0); hot.setAttribute('opacity', 0); };
 }
 
 async function refresh() {
   try {
-    const [data, fc] = await Promise.all([
+    const [data, fc, d7] = await Promise.all([
       fetch('/api/history?limit=300').then(r => r.json()),
-      fetch('/api/forecast').then(r => r.json()),
+      fetch('/api/forecast').then(r => r.json()).catch(() => null),
+      fetch('/api/days').then(r => r.json()).catch(() => null),
     ]);
+    last = { data, fc };
+    if (Array.isArray(d7)) { days = d7; renderDays(); }
     if (data.length) render(data, fc);
     else $('conn').textContent = 'Đang chờ bản tin đầu tiên từ ESP32...';
   } catch {
+    $('dot').className = 'dot';
+    $('dot').style.background = 'var(--muted)';
     $('conn').textContent = 'Không kết nối được tới server';
   }
 }
+// ---------- Thời tiết (server lấy từ OpenWeatherMap, lưu đệm 10 phút) ----------
+const wxIcon = code => `https://openweathermap.org/img/wn/${code}@2x.png`;
+async function loadWeather() {
+  let w;
+  try { w = await fetch('/api/weather').then(r => r.json()); } catch { return; }
+  if (!w.enabled) { $('weather').hidden = true; return; }
+  $('weather').hidden = false;
+  if (w.error) { $('wxDesc').textContent = 'Không lấy được thời tiết (kiểm tra Internet hoặc API key)'; return; }
+  $('wxTitle').textContent = 'Thời tiết ' + w.city;
+  $('wxUpdated').textContent = (w.stale ? 'Dữ liệu cũ · ' : 'Cập nhật ') + new Date(w.updated).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  $('wxIcon').src = wxIcon(w.icon);
+  $('wxIcon').alt = w.desc;
+  $('wxTemp').textContent = Math.round(w.temp);
+  $('wxDesc').textContent = w.desc;
+  $('wxMeta').textContent = `Cảm giác ${Math.round(w.feels)}°C · độ ẩm ${w.humidity}% · gió ${w.wind.toFixed(1)} m/s` +
+    (w.rain_1h ? ` · mưa ${w.rain_1h.toFixed(1)} mm/giờ` : '');
+  $('wxRain').textContent = w.rain_24h > 0
+    ? `Dự kiến mưa ${w.rain_24h.toFixed(1)} mm trong 24 giờ tới`
+    : 'Không có mưa trong 24 giờ tới';
+  const maxRain = Math.max(5, ...w.next.map(f => f.rain_mm));   // thang tối thiểu 5 mm để mưa nhỏ không trông như mưa to
+  $('wxStrip').innerHTML = w.next.map(f => `
+    <div class="wx-slot" title="${f.desc}">
+      ${new Date(f.time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+      <img src="${wxIcon(f.icon)}" alt="${f.desc}">
+      <b class="num">${Math.round(f.temp)}°</b>
+      <div class="wx-bar"><i style="height:${(f.rain_mm / maxRain * 100).toFixed(0)}%"></i></div>
+      <span class="num">${f.rain_mm.toFixed(1)} mm</span><br><span class="num">${Math.round(f.pop * 100)}%</span>
+    </div>`).join('');
+}
+loadWeather();
+setInterval(loadWeather, 60 * 1000);
+
+addEventListener('resize', () => {
+  if (last.data && last.data.length) drawChart($('chart'), last.data, $('fc').querySelector('.fc-rows') ? last.fc : null);
+  if (!$('detail').hidden && dayData.length > 1) drawChart($('dayChart'), dayData, null);
+});
 refresh();
 setInterval(refresh, 5000);
 </script>
