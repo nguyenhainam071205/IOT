@@ -1,6 +1,7 @@
 # Dữ liệu do server ghi khi chạy và dữ liệu giả lập (tạo lại bằng: cd web && node generate-data.js)
 web/data.jsonl
 web/synthetic.jsonl
+web/generate-data.js
 
 # File riêng trên máy từng người
 CLAUDE.md
