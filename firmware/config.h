@@ -33,9 +33,9 @@ const float OFFSET_CM = 0.0;    // độ lệch cố định, chỉnh sau khi so
 // ---------------------- MỰC NƯỚC / CẢNH BÁO ----------------------
 //  D_loc = (1/N) * SUM(D[n-i], i = 0..N-1)   (trung bình động N mẫu)
 const int   N_MA      = 5;      // số mẫu của bộ lọc trung bình động
-const float H_TRAM_CM = 30.0;   // chiều cao từ cảm biến xuống đáy (cm), H_nuoc = H_tram - D_loc
+const float H_TRAM_CM = 10.0;   // chiều cao từ cảm biến xuống đáy (cm), H_nuoc = H_tram - D_loc
 const float YELLOW_CM = 4.0;    // H_nuoc >= 4 cm  -> VÀNG
-const float RED_CM    = 8.0;    // H_nuoc >= 8 cm  -> ĐỎ
+const float RED_CM    = 7.0;    // H_nuoc >= 7 cm  -> ĐỎ (D_loc = 3 cm, ngoài vùng mù ~2 cm của HC-SR04)
 const float HYST_CM   = 0.5;    // trễ khi hạ mức, tránh nhấp nháy giữa 2 mức
 
 // ---------------------- LƯU LƯỢNG YF-S201 ----------------------
